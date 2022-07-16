@@ -1515,12 +1515,12 @@ func (h *handlers) AddAnnouncement(c echo.Context) error {
 	defer tx.Rollback()
 
 	var course Course
-	if err := tx.Select(&course, "SELECT * FROM `courses` WHERE `id` = ? LIMIT 1", req.CourseID); err != nil {
+	if err := tx.Get(&course, "SELECT * FROM `courses` WHERE `id` = ? LIMIT 1", req.CourseID); err != nil {
+		if err == sql.ErrNoRows {
+			return c.String(http.StatusNotFound, "No such course.")
+		}
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
-	}
-	if course.ID == "" {
-		return c.String(http.StatusNotFound, "No such course.")
 	}
 
 	if _, err := tx.Exec("INSERT INTO `announcements` (`id`, `course_id`, `title`, `message`, `course_name`) VALUES (?, ?, ?, ?, ?)",
