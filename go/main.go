@@ -671,7 +671,13 @@ func (h *handlers) GetGrades(c echo.Context) error {
 		}
 
 		// この科目を履修している学生のTotalScore一覧を取得
-		var totals []int
+		var totalUserCnt int
+		if err := h.DB.Get(&totalUserCnt, "SELECT COUNT(*) FROM `registrations` WHERE `course_id` = ?", course.ID); err != nil {
+			c.Logger().Error(err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+
+		totals := make([]int, totalUserCnt)
 		//query := "SELECT IFNULL(SUM(`submissions`.`score`), 0) AS `total_score`" +
 		//	" FROM `users`" +
 		//	" JOIN `registrations` ON `users`.`id` = `registrations`.`user_id`" +
@@ -685,13 +691,6 @@ func (h *handlers) GetGrades(c echo.Context) error {
 			c.Logger().Error(err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
-		var totalUserCnt int
-		if err := h.DB.Get(&totalUserCnt, "SELECT COUNT(*) FROM `registrations` WHERE `course_id` = ?", course.ID); err != nil {
-			c.Logger().Error(err)
-			return c.NoContent(http.StatusInternalServerError)
-		}
-
-		totals = append(totals, make([]int, totalUserCnt-len(totals))...)
 
 		courseResults = append(courseResults, CourseResult{
 			Name:             course.Name,
