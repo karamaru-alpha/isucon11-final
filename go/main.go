@@ -625,7 +625,7 @@ func (h *handlers) GetGrades(c echo.Context) error {
 		Score   int    `db:"score"`
 	}
 	scorers := make([]Scorer, 0, len(classIDs))
-	query, params, err = sqlx.In("SELECT `submissions`.`score` FROM `submissions` WHERE `user_id` = ? AND `class_id` IN (?)", userID, classIDs)
+	query, params, err = sqlx.In("SELECT `class_id`, `submissions`.`score` FROM `submissions` WHERE `user_id` = ? AND `class_id` IN (?)", userID, classIDs)
 	if err := h.DB.Select(&scorers, h.DB.Rebind(query), params...); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
