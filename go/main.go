@@ -697,7 +697,7 @@ func (h *handlers) GetGrades(c echo.Context) error {
 	//var ok bool
 	//gpas, ok = omGpa.Get()
 	//if !ok {
-	_, err, _ = group1.Do("group1", func() (interface{}, error) {
+	v, err, _ := group1.Do("group1", func() (interface{}, error) {
 		query = "SELECT IFNULL(SUM(`submissions`.`score` * `courses`.`credit`), 0) / 100 / `credits`.`credits` AS `gpa`" +
 			" FROM `users`" +
 			" JOIN (" +
@@ -713,12 +713,15 @@ func (h *handlers) GetGrades(c echo.Context) error {
 			" LEFT JOIN `submissions` ON `users`.`id` = `submissions`.`user_id` AND `submissions`.`class_id` = `classes`.`id`" +
 			" WHERE `users`.`type` = ?" +
 			" GROUP BY `users`.`id`"
-		return nil, h.DB.Select(&gpas, query, StatusClosed, StatusClosed, Student)
+		var newGPAs []float64
+		err := h.DB.Select(&newGPAs, query, StatusClosed, StatusClosed, Student)
+		return newGPAs, err
 	})
 	if err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
+	gpas = v.([]float64)
 
 	res := GetGradeResponse{
 		Summary: Summary{
