@@ -15,15 +15,13 @@ import (
 	"strings"
 	"sync"
 
-	log2 "github.com/labstack/gommon/log"
-	"golang.org/x/sync/singleflight"
-
 	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	log2 "github.com/labstack/gommon/log"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -598,7 +596,7 @@ type ClassScore struct {
 	Submitters int    `json:"submitters"` // 提出した学生数
 }
 
-var group1 singleflight.Group
+//var group1 singleflight.Group
 
 // GetGrades GET /api/users/me/grades 成績取得
 func (h *handlers) GetGrades(c echo.Context) error {
@@ -671,18 +669,35 @@ func (h *handlers) GetGrades(c echo.Context) error {
 		}
 
 		// この科目を履修している学生のTotalScore一覧を取得
-		var totals []int
-		query := "SELECT IFNULL(SUM(`submissions`.`score`), 0) AS `total_score`" +
-			" FROM `users`" +
-			" JOIN `registrations` ON `users`.`id` = `registrations`.`user_id`" +
-			" JOIN `courses` ON `registrations`.`course_id` = `courses`.`id`" +
-			" LEFT JOIN `classes` ON `courses`.`id` = `classes`.`course_id`" +
-			" LEFT JOIN `submissions` ON `users`.`id` = `submissions`.`user_id` AND `submissions`.`class_id` = `classes`.`id`" +
-			" WHERE `courses`.`id` = ?" +
-			" GROUP BY `users`.`id`"
+
+		totals := make([]int, 0)
+		//query := "SELECT IFNULL(SUM(`submissions`.`score`), 0) AS `total_score`" +
+		//	" FROM `users`" +
+		//	" JOIN `registrations` ON `users`.`id` = `registrations`.`user_id`" +
+		//	" JOIN `courses` ON `registrations`.`course_id` = `courses`.`id`" +
+		//	" LEFT JOIN `classes` ON `courses`.`id` = `classes`.`course_id`" +
+		//	" LEFT JOIN `submissions` ON `users`.`id` = `submissions`.`user_id` AND `submissions`.`class_id` = `classes`.`id`" +
+		//	" WHERE `courses`.`id` = ?" +
+		//	" GROUP BY `users`.`id`"
+		query := "SELECT IFNULL(SUM(`submissions`.`score`), 0) AS `total_score` FROM `submissions` JOIN `classes` ON `submissions`.`class_id` = `classes`.`id` WHERE `classes`.`course_id`= ? GROUP BY `submissions`.`user_id`"
 		if err := h.DB.Select(&totals, query, course.ID); err != nil {
 			c.Logger().Error(err)
 			return c.NoContent(http.StatusInternalServerError)
+		}
+
+		var totalUserCnt int
+		if err := h.DB.Get(&totalUserCnt, "SELECT COUNT(*) FROM `registrations` WHERE `course_id` = ?", course.ID); err != nil {
+			c.Logger().Error(err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+
+		if len(totals) > 0 {
+			for {
+				if len(totals) == totalUserCnt {
+					break
+				}
+				totals = append(totals, 0)
+			}
 		}
 
 		courseResults = append(courseResults, CourseResult{
@@ -709,33 +724,32 @@ func (h *handlers) GetGrades(c echo.Context) error {
 	// GPAの統計値
 	// 一つでも修了した科目がある学生のGPA一覧
 	var gpas []float64
-	var ok bool
-	gpas, ok = omGpa.Get()
-	if !ok {
-		_, err, _ = group1.Do("group1", func() (interface{}, error) {
-			query = "SELECT IFNULL(SUM(`submissions`.`score` * `courses`.`credit`), 0) / 100 / `credits`.`credits` AS `gpa`" +
-				" FROM `users`" +
-				" JOIN (" +
-				"     SELECT `users`.`id` AS `user_id`, SUM(`courses`.`credit`) AS `credits`" +
-				"     FROM `users`" +
-				"     JOIN `registrations` ON `users`.`id` = `registrations`.`user_id`" +
-				"     JOIN `courses` ON `registrations`.`course_id` = `courses`.`id` AND `courses`.`status` = ?" +
-				"     GROUP BY `users`.`id`" +
-				" ) AS `credits` ON `credits`.`user_id` = `users`.`id`" +
-				" JOIN `registrations` ON `users`.`id` = `registrations`.`user_id`" +
-				" JOIN `courses` ON `registrations`.`course_id` = `courses`.`id` AND `courses`.`status` = ?" +
-				" LEFT JOIN `classes` ON `courses`.`id` = `classes`.`course_id`" +
-				" LEFT JOIN `submissions` ON `users`.`id` = `submissions`.`user_id` AND `submissions`.`class_id` = `classes`.`id`" +
-				" WHERE `users`.`type` = ?" +
-				" GROUP BY `users`.`id`"
-			return nil, h.DB.Select(&gpas, query, StatusClosed, StatusClosed, Student)
-		})
-		if err != nil {
-			c.Logger().Error(err)
-			return c.NoContent(http.StatusInternalServerError)
-		}
-		omGpa.Set(gpas)
+	//var ok bool
+	//gpas, ok = omGpa.Get()
+	//if !ok {
+	//_, err, _ = group1.Do("group1", func() (interface{}, error) {
+	query = "SELECT IFNULL(SUM(`submissions`.`score` * `courses`.`credit`), 0) / 100 / `credits`.`credits` AS `gpa`" +
+		" FROM `users`" +
+		" JOIN (" +
+		"     SELECT `users`.`id` AS `user_id`, SUM(`courses`.`credit`) AS `credits`" +
+		"     FROM `users`" +
+		"     JOIN `registrations` ON `users`.`id` = `registrations`.`user_id`" +
+		"     JOIN `courses` ON `registrations`.`course_id` = `courses`.`id` AND `courses`.`status` = ?" +
+		"     GROUP BY `users`.`id`" +
+		" ) AS `credits` ON `credits`.`user_id` = `users`.`id`" +
+		" JOIN `registrations` ON `users`.`id` = `registrations`.`user_id`" +
+		" JOIN `courses` ON `registrations`.`course_id` = `courses`.`id` AND `courses`.`status` = ?" +
+		" LEFT JOIN `classes` ON `courses`.`id` = `classes`.`course_id`" +
+		" LEFT JOIN `submissions` ON `users`.`id` = `submissions`.`user_id` AND `submissions`.`class_id` = `classes`.`id`" +
+		" WHERE `users`.`type` = ?" +
+		" GROUP BY `users`.`id`"
+	//})
+	if err := h.DB.Select(&gpas, query, StatusClosed, StatusClosed, Student); err != nil {
+		c.Logger().Error(err)
+		return c.NoContent(http.StatusInternalServerError)
 	}
+	//omGpa.Set(gpas)
+	//}
 
 	res := GetGradeResponse{
 		Summary: Summary{
