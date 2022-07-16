@@ -1394,12 +1394,16 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 	}
 	defer tx.Rollback()
 
+	var registaredCourseIDs []string
+	if err := h.DB.Select(&registaredCourseIDs, "SELECT `course_id` FROM `registrations` WHERE user_id = ?", userID); err != nil {
+		c.Logger().Error(err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
 	var announcements []AnnouncementWithoutDetail
 	var args []interface{}
-	query := "SELECT `announcements`.`id`, `courses`.`id` AS `course_id`, `courses`.`name` AS `course_name`, `announcements`.`title`, NOT `unread_announcements`.`is_deleted` AS `unread`" +
+	query := "SELECT `announcements`.`id`, `announcements`.`course_id`, `announcements`.`course_name`, `announcements`.`title`, NOT `unread_announcements`.`is_deleted` AS `unread`" +
 		" FROM `announcements`" +
-		" JOIN `courses` ON `announcements`.`course_id` = `courses`.`id`" +
-		" JOIN `registrations` ON `courses`.`id` = `registrations`.`course_id`" +
 		" JOIN `unread_announcements` ON `announcements`.`id` = `unread_announcements`.`announcement_id`" +
 		" WHERE 1=1"
 
@@ -1409,10 +1413,10 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 	}
 
 	query += " AND `unread_announcements`.`user_id` = ?" +
-		" AND `registrations`.`user_id` = ?" +
+		"AND `announcements`.`course_id` IN (?)" +
 		" ORDER BY `announcements`.`id` DESC" +
 		" LIMIT ? OFFSET ?"
-	args = append(args, userID, userID)
+	args = append(args, userID, registaredCourseIDs)
 
 	var page int
 	if c.QueryParam("page") == "" {
@@ -1428,7 +1432,9 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 	// limitより多く上限を設定し、実際にlimitより多くレコードが取得できた場合は次のページが存在する
 	args = append(args, limit+1, offset)
 
-	if err := tx.Select(&announcements, query, args...); err != nil {
+	query, params, err := sqlx.In(query, args...)
+
+	if err := tx.Select(&announcements, h.DB.Rebind(query), params...); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
@@ -1507,17 +1513,17 @@ func (h *handlers) AddAnnouncement(c echo.Context) error {
 	}
 	defer tx.Rollback()
 
-	var count int
-	if err := tx.Get(&count, "SELECT COUNT(*) FROM `courses` WHERE `id` = ?", req.CourseID); err != nil {
+	var course Course
+	if err := tx.Get(&course, "SELECT * FROM `courses` WHERE `id` = ?", req.CourseID); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
-	if count == 0 {
+	if course.ID == "" {
 		return c.String(http.StatusNotFound, "No such course.")
 	}
 
-	if _, err := tx.Exec("INSERT INTO `announcements` (`id`, `course_id`, `title`, `message`) VALUES (?, ?, ?, ?)",
-		req.ID, req.CourseID, req.Title, req.Message); err != nil {
+	if _, err := tx.Exec("INSERT INTO `announcements` (`id`, `course_id`, `title`, `message`, `course_name`) VALUES (?, ?, ?, ?, ?)",
+		req.ID, req.CourseID, req.Title, req.Message, course.Name); err != nil {
 		_ = tx.Rollback()
 		if mysqlErr, ok := err.(*mysql.MySQLError); ok && mysqlErr.Number == uint16(mysqlErrNumDuplicateEntry) {
 			var announcement Announcement
