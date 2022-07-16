@@ -621,8 +621,8 @@ func (h *handlers) GetGrades(c echo.Context) error {
 	}
 
 	type Scorer struct {
-		ClassID string `db:"class_id"`
-		Score   int    `db:"score"`
+		ClassID string        `db:"class_id"`
+		Score   sql.NullInt32 `db:"score"`
 	}
 	scorers := make([]Scorer, 0, len(classIDs))
 	query, params, err = sqlx.In("SELECT `class_id`, `submissions`.`score` FROM `submissions` WHERE `user_id` = ? AND `class_id` IN (?)", userID, classIDs)
@@ -630,9 +630,11 @@ func (h *handlers) GetGrades(c echo.Context) error {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
-	myScoreMap := make(map[string]int, len(scorers))
+	myScoreMap := make(map[string]int32, l
+
+	en(scorers))
 	for _, v := range scorers {
-		myScoreMap[v.ClassID] = v.Score
+		myScoreMap[v.ClassID] = v.Score.Int32
 	}
 
 	// 科目毎の成績計算処理
