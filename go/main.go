@@ -13,7 +13,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
@@ -23,6 +22,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	log2 "github.com/labstack/gommon/log"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/sync/singleflight"
 )
 
 const (
@@ -35,37 +35,6 @@ const (
 
 type handlers struct {
 	DB *sqlx.DB
-}
-
-type omGpaT struct {
-	M        sync.RWMutex
-	IsChange bool
-	V        []float64
-}
-
-var omGpa omGpaT
-
-func (o *omGpaT) Get() ([]float64, bool) {
-	o.M.RLock()
-	defer o.M.RUnlock()
-	if o.IsChange || len(o.V) == 0 {
-		return nil, false
-	}
-
-	return o.V, true
-}
-
-func (o *omGpaT) Set(v []float64) {
-	o.M.Lock()
-	o.V = append(o.V, v...)
-	o.IsChange = false
-	o.M.Unlock()
-}
-
-func (o *omGpaT) Update() {
-	o.M.Lock()
-	o.IsChange = true
-	o.M.Unlock()
 }
 
 func main() {
@@ -597,7 +566,7 @@ type ClassScore struct {
 	Submitters int    `json:"submitters"` // 提出した学生数
 }
 
-//var group1 singleflight.Group
+var group1 singleflight.Group
 
 // GetGrades GET /api/users/me/grades 成績取得
 func (h *handlers) GetGrades(c echo.Context) error {
@@ -728,9 +697,7 @@ func (h *handlers) GetGrades(c echo.Context) error {
 	//var ok bool
 	//gpas, ok = omGpa.Get()
 	//if !ok {
-	//_, err, _ = group1.Do("group1", func() (interface{}, error) {
-	gpas, ok := omGpa.Get()
-	if !ok {
+	_, err, _ = group1.Do("group1", func() (interface{}, error) {
 		query = "SELECT IFNULL(SUM(`submissions`.`score` * `courses`.`credit`), 0) / 100 / `credits`.`credits` AS `gpa`" +
 			" FROM `users`" +
 			" JOIN (" +
@@ -746,11 +713,11 @@ func (h *handlers) GetGrades(c echo.Context) error {
 			" LEFT JOIN `submissions` ON `users`.`id` = `submissions`.`user_id` AND `submissions`.`class_id` = `classes`.`id`" +
 			" WHERE `users`.`type` = ?" +
 			" GROUP BY `users`.`id`"
-		if err := h.DB.Select(&gpas, query, StatusClosed, StatusClosed, Student); err != nil {
-			c.Logger().Error(err)
-			return c.NoContent(http.StatusInternalServerError)
-		}
-		omGpa.Set(gpas)
+		return nil, h.DB.Select(&gpas, query, StatusClosed, StatusClosed, Student)
+	})
+	if err != nil {
+		c.Logger().Error(err)
+		return c.NoContent(http.StatusInternalServerError)
 	}
 
 	res := GetGradeResponse{
@@ -1003,9 +970,6 @@ func (h *handlers) SetCourseStatus(c echo.Context) error {
 	if _, err := tx.Exec("UPDATE `courses` SET `status` = ? WHERE `id` = ?", req.Status, courseID); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
-	}
-	if req.Status == StatusClosed {
-		omGpa.Update()
 	}
 	if err := tx.Commit(); err != nil {
 		c.Logger().Error(err)
