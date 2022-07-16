@@ -1,12 +1,12 @@
 APP_PATH=/home/isucon/webapp
-GO_PATH=/home/isucon/webapp/golang
+GO_PATH=/home/isucon/webapp/go
 
-APP:=isucondition
+APP:=isucholar
 DB_HOST:=127.0.0.1
 DB_PORT:=3306
 DB_USER:=isucon
 DB_PASS:=isucon
-DB_NAME:=isucon
+DB_NAME:=isucholar
 MYSQL_LOG:=/var/log/mysql/slow-query.log
 MYSQL_ERR:=/var/log/mysql/error.log
 NGINX_LOG:=/var/log/nginx/access.log
