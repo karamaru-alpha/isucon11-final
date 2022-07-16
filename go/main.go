@@ -1437,6 +1437,9 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 	args = append(args, limit+1, offset)
 
 	query2, params, err := sqlx.In(query, args...)
+	if query2 == "" {
+		log.Println(query)
+	}
 
 	if err := tx.Select(&announcements, h.DB.Rebind(query2), params...); err != nil {
 		c.Logger().Error(err)
