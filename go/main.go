@@ -1433,9 +1433,9 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 	// limitより多く上限を設定し、実際にlimitより多くレコードが取得できた場合は次のページが存在する
 	args = append(args, limit+1, offset)
 
-	q, params, err := sqlx.In(query, args...)
+	q1, params, err := sqlx.In(query, args...)
 
-	if err := tx.Select(&announcements, h.DB.Rebind(q), params...); err != nil {
+	if err := tx.Select(&announcements, h.DB.Rebind(q1), params...); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
