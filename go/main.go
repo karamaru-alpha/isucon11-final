@@ -1395,16 +1395,12 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 	}
 	defer tx.Rollback()
 
-	var registaredCourseIDs []string
-	if err := h.DB.Select(&registaredCourseIDs, "SELECT `course_id` FROM `registrations` WHERE user_id = ?", userID); err != nil {
-		c.Logger().Error(err)
-		return c.NoContent(http.StatusInternalServerError)
-	}
-
 	var announcements []AnnouncementWithoutDetail
 	var args []interface{}
 	query := "SELECT `announcements`.`id`, `announcements`.`course_id`, `announcements`.`course_name`, `announcements`.`title`, NOT `unread_announcements`.`is_deleted` AS `unread`" +
 		" FROM `announcements`" +
+		" JOIN `courses` ON `announcements`.`course_id` = `courses`.`id`" +
+		" JOIN `registrations` ON `courses`.`id` = `registrations`.`course_id`" +
 		" JOIN `unread_announcements` ON `announcements`.`id` = `unread_announcements`.`announcement_id`" +
 		" WHERE 1=1"
 
@@ -1414,10 +1410,11 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 	}
 
 	query += " AND `unread_announcements`.`user_id` = ?" +
-		"AND `announcements`.`course_id` IN (?)" +
+		//"AND `announcements`.`course_id` IN (?)" +
+		" AND `registrations`.`user_id` = ?" +
 		" ORDER BY `announcements`.`id` DESC" +
 		" LIMIT ? OFFSET ?"
-	args = append(args, userID, registaredCourseIDs)
+	args = append(args, userID, userID)
 
 	var page int
 	if c.QueryParam("page") == "" {
@@ -1433,9 +1430,9 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 	// limitより多く上限を設定し、実際にlimitより多くレコードが取得できた場合は次のページが存在する
 	args = append(args, limit+1, offset)
 
-	q1, params, err := sqlx.In(query, args...)
+	//q1, params, err := sqlx.In(query, args...)
 
-	if err := tx.Select(&announcements, h.DB.Rebind(q1), params...); err != nil {
+	if err := tx.Select(&announcements, h.DB.Rebind(query), args...); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
