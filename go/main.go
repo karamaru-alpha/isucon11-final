@@ -1004,7 +1004,9 @@ func (h *handlers) SetCourseStatus(c echo.Context) error {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
-	omGpa.Update()
+	if req.Status == StatusClosed {
+		omGpa.Update()
+	}
 	if err := tx.Commit(); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
