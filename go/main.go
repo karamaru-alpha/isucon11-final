@@ -630,11 +630,11 @@ func (h *handlers) GetGrades(c echo.Context) error {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
-	myScoreMap := make(map[string]int32, l
-
-	en(scorers))
+	myScoreMap := make(map[string]int, len(scorers))
 	for _, v := range scorers {
-		myScoreMap[v.ClassID] = v.Score.Int32
+		if v.Score.Valid {
+			myScoreMap[v.ClassID] = int(v.Score.Int32)
+		}
 	}
 
 	// 科目毎の成績計算処理
