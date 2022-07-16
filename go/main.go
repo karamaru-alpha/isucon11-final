@@ -1388,6 +1388,8 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	courseID := c.QueryParam("course_id")
+
 	tx, err := h.DB.Beginx()
 	if err != nil {
 		c.Logger().Error(err)
@@ -1399,22 +1401,26 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 	var args []interface{}
 	query := "SELECT `announcements`.`id`, `announcements`.`course_id`, `announcements`.`course_name`, `announcements`.`title`, NOT `unread_announcements`.`is_deleted` AS `unread`" +
 		" FROM `announcements`" +
-		" JOIN `courses` ON `announcements`.`course_id` = `courses`.`id`" +
-		" JOIN `registrations` ON `courses`.`id` = `registrations`.`course_id`" +
 		" JOIN `unread_announcements` ON `announcements`.`id` = `unread_announcements`.`announcement_id`" +
 		" WHERE 1=1"
 
-	if courseID := c.QueryParam("course_id"); courseID != "" {
+	if courseID != "" {
 		query += " AND `announcements`.`course_id` = ?"
 		args = append(args, courseID)
+	} else {
+		var registeredCourseIDs []string
+		if err := h.DB.Select(&registeredCourseIDs, "SELECT `course_id` FROM `registrations` WHERE user_id = ?", userID); err != nil {
+			c.Logger().Error(err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+		query += " AND `announcements`.`course_id` IN (?)"
+		args = append(args, registeredCourseIDs)
 	}
 
 	query += " AND `unread_announcements`.`user_id` = ?" +
-		//"AND `announcements`.`course_id` IN (?)" +
-		" AND `registrations`.`user_id` = ?" +
 		" ORDER BY `announcements`.`id` DESC" +
 		" LIMIT ? OFFSET ?"
-	args = append(args, userID, userID)
+	args = append(args, userID)
 
 	var page int
 	if c.QueryParam("page") == "" {
@@ -1430,9 +1436,9 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 	// limitより多く上限を設定し、実際にlimitより多くレコードが取得できた場合は次のページが存在する
 	args = append(args, limit+1, offset)
 
-	//q1, params, err := sqlx.In(query, args...)
+	query2, params, err := sqlx.In(query, args...)
 
-	if err := tx.Select(&announcements, h.DB.Rebind(query), args...); err != nil {
+	if err := tx.Select(&announcements, h.DB.Rebind(query2), params...); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
