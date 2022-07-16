@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -12,6 +13,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	log2 "github.com/labstack/gommon/log"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
@@ -36,11 +39,23 @@ type handlers struct {
 
 func main() {
 	e := echo.New()
-	e.Debug = GetEnv("DEBUG", "") == "true"
+
+	log.SetFlags(log.Lshortfile)
+	logfile, err := os.OpenFile("/var/log/go.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		panic("cannnot open test.log:" + err.Error())
+	}
+	defer logfile.Close()
+	log.SetOutput(logfile)
+	log.Print("main!!!!")
+	e.Logger.SetOutput(logfile)
+	e.Logger.SetLevel(log2.ERROR)
+
+	//e.Debug = GetEnv("DEBUG", "") == "true"
 	e.Server.Addr = fmt.Sprintf(":%v", GetEnv("PORT", "7000"))
 	e.HideBanner = true
 
-	e.Use(middleware.Logger())
+	//e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(session.Middleware(sessions.NewCookieStore([]byte("trapnomura"))))
 
