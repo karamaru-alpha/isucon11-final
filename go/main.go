@@ -600,6 +600,26 @@ func (h *handlers) GetGrades(c echo.Context) error {
 		classMap[v.CourseID] = append(classMap[v.CourseID], v)
 	}
 
+	var classIDs []string
+	for _, v := range allClasses {
+		classIDs = append(classIDs, v.ID)
+	}
+
+	type Counter struct {
+		ClassID         string `db:"class_id"`
+		SubmissionCount int    `db:"submission_count"`
+	}
+	var counters []Counter
+	query, params, err = sqlx.In("SELECT `class_id`, COUNT(*) AS `submission_count` FROM `submissions` WHERE `class_id` IN (?) GROUP BY `class_id`", classIDs)
+	if err := h.DB.Select(&counters, h.DB.Rebind(query), params...); err != nil {
+		c.Logger().Error(err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+	submissionCounterMap := make(map[string]int, len(counters))
+	for _, v := range counters {
+		submissionCounterMap[v.ClassID] = v.SubmissionCount
+	}
+
 	// 科目毎の成績計算処理
 	courseResults := make([]CourseResult, 0, len(registeredCourses))
 	myGPA := 0.0
@@ -612,11 +632,7 @@ func (h *handlers) GetGrades(c echo.Context) error {
 		classScores := make([]ClassScore, 0, len(classes))
 		var myTotalScore int
 		for _, class := range classes {
-			var submissionsCount int
-			if err := h.DB.Get(&submissionsCount, "SELECT COUNT(*) FROM `submissions` WHERE `class_id` = ?", class.ID); err != nil {
-				c.Logger().Error(err)
-				return c.NoContent(http.StatusInternalServerError)
-			}
+			submissionsCount := submissionCounterMap[class.ID]
 
 			var myScore sql.NullInt64
 			if err := h.DB.Get(&myScore, "SELECT `submissions`.`score` FROM `submissions` WHERE `user_id` = ? AND `class_id` = ?", userID, class.ID); err != nil && err != sql.ErrNoRows {
