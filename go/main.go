@@ -606,7 +606,7 @@ func (h *handlers) GetGrades(c echo.Context) error {
 	myCredits := 0
 	for _, course := range registeredCourses {
 		// 講義一覧の取得
-		classes := classMap[course.ID]cm
+		classes := classMap[course.ID]
 
 		// 講義毎の成績計算処理
 		classScores := make([]ClassScore, 0, len(classes))
