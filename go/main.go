@@ -1440,13 +1440,15 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 		params []interface{}
 	)
 	if courseID == "" {
-		query, params, err = sqlx.In(query, registeredCourseIDs, userID, limit+1, offset)
-		if err != nil {
-			panic(err)
-		}
-		if err := tx.Select(&announcements, h.DB.Rebind(query), params...); err != nil {
-			c.Logger().Error(err)
-			return c.NoContent(http.StatusInternalServerError)
+		if len(registeredCourseIDs) > 0 {
+			query, params, err = sqlx.In(query, registeredCourseIDs, userID, limit+1, offset)
+			if err != nil {
+				panic(err)
+			}
+			if err := tx.Select(&announcements, h.DB.Rebind(query), params...); err != nil {
+				c.Logger().Error(err)
+				return c.NoContent(http.StatusInternalServerError)
+			}
 		}
 	} else {
 		if err := tx.Select(&announcements, query, args...); err != nil {
