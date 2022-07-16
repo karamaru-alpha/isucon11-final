@@ -685,13 +685,18 @@ func (h *handlers) GetGrades(c echo.Context) error {
 			c.Logger().Error(err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
+		var totalUserCnt int
+		if err := h.DB.Get(&totalUserCnt, "SELECT COUNT(*) FROM `registrations` WHERE `course_id` = ?", course.ID); err != nil {
+			c.Logger().Error(err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
 
 		courseResults = append(courseResults, CourseResult{
 			Name:             course.Name,
 			Code:             course.Code,
 			TotalScore:       myTotalScore,
-			TotalScoreTScore: tScoreInt(myTotalScore, totals),
-			TotalScoreAvg:    averageInt(totals, 0),
+			TotalScoreTScore: tScoreInt(totalUserCnt, myTotalScore, totals),
+			TotalScoreAvg:    averageInt(totalUserCnt, totals, 0),
 			TotalScoreMax:    maxInt(totals, 0),
 			TotalScoreMin:    minInt(totals, 0),
 			ClassScores:      classScores,
