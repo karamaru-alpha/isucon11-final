@@ -1404,11 +1404,11 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 		" JOIN `unread_announcements` ON `announcements`.`id` = `unread_announcements`.`announcement_id`" +
 		" WHERE 1=1"
 
+	var registeredCourseIDs []string
 	if courseID != "" {
 		query += " AND `announcements`.`course_id` = ?"
 		args = append(args, courseID)
 	} else {
-		var registeredCourseIDs []string
 		if err := h.DB.Select(&registeredCourseIDs, "SELECT `course_id` FROM `registrations` WHERE user_id = ?", userID); err != nil {
 			c.Logger().Error(err)
 			return c.NoContent(http.StatusInternalServerError)
@@ -1436,14 +1436,20 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 	// limitより多く上限を設定し、実際にlimitより多くレコードが取得できた場合は次のページが存在する
 	args = append(args, limit+1, offset)
 
-	query2, params, err := sqlx.In(query, args...)
-	if query2 == "" {
-		log.Println(query)
-	}
-
-	if err := tx.Select(&announcements, h.DB.Rebind(query2), params...); err != nil {
-		c.Logger().Error(err)
-		return c.NoContent(http.StatusInternalServerError)
+	var (
+		params []interface{}
+	)
+	if courseID == "" {
+		query, params, err = sqlx.In(query, registeredCourseIDs, userID, limit+1, offset)
+		if err := tx.Select(&announcements, h.DB.Rebind(query), params...); err != nil {
+			c.Logger().Error(err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+	} else {
+		if err := tx.Select(&announcements, query, args...); err != nil {
+			c.Logger().Error(err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
 	}
 
 	var unreadCount int
