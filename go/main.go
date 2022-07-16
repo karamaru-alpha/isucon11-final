@@ -39,6 +39,28 @@ type handlers struct {
 	DB *sqlx.DB
 }
 
+var omClosedCourseMap map[string]interface{}
+
+type omTotalScoreT struct {
+	M sync.RWMutex
+	V map[string][]int
+}
+
+var omTotalScore omTotalScoreT
+
+func (o *omTotalScoreT) Get(k string) ([]int, bool) {
+	o.M.RLock()
+	v, ok := o.V[k]
+	defer o.M.RUnlock()
+	return v, ok
+}
+
+func (o *omTotalScoreT) Set(k string, v []int) {
+	o.M.Lock()
+	o.V[k] = v
+	o.M.Unlock()
+}
+
 type omGpaT struct {
 	M        sync.RWMutex
 	IsChange bool
@@ -71,6 +93,11 @@ func (o *omGpaT) Update() {
 
 func main() {
 	e := echo.New()
+
+	omClosedCourseMap = map[string]interface{}{}
+	omTotalScore = omTotalScoreT{
+		V: make(map[string][]int, 0),
+	}
 
 	log.SetFlags(log.Lshortfile)
 	logfile, err := os.OpenFile("/var/log/go.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
@@ -672,17 +699,36 @@ func (h *handlers) GetGrades(c echo.Context) error {
 
 		// この科目を履修している学生のTotalScore一覧を取得
 		var totals []int
-		query := "SELECT IFNULL(SUM(`submissions`.`score`), 0) AS `total_score`" +
-			" FROM `users`" +
-			" JOIN `registrations` ON `users`.`id` = `registrations`.`user_id`" +
-			" JOIN `courses` ON `registrations`.`course_id` = `courses`.`id`" +
-			" LEFT JOIN `classes` ON `courses`.`id` = `classes`.`course_id`" +
-			" LEFT JOIN `submissions` ON `users`.`id` = `submissions`.`user_id` AND `submissions`.`class_id` = `classes`.`id`" +
-			" WHERE `courses`.`id` = ?" +
-			" GROUP BY `users`.`id`"
-		if err := h.DB.Select(&totals, query, course.ID); err != nil {
-			c.Logger().Error(err)
-			return c.NoContent(http.StatusInternalServerError)
+		if _, ok := omClosedCourseMap[course.ID]; !ok {
+			query := "SELECT IFNULL(SUM(`submissions`.`score`), 0) AS `total_score`" +
+				" FROM `users`" +
+				" JOIN `registrations` ON `users`.`id` = `registrations`.`user_id`" +
+				" JOIN `courses` ON `registrations`.`course_id` = `courses`.`id`" +
+				" LEFT JOIN `classes` ON `courses`.`id` = `classes`.`course_id`" +
+				" LEFT JOIN `submissions` ON `users`.`id` = `submissions`.`user_id` AND `submissions`.`class_id` = `classes`.`id`" +
+				" WHERE `courses`.`id` = ?" +
+				" GROUP BY `users`.`id`"
+			if err := h.DB.Select(&totals, query, course.ID); err != nil {
+				c.Logger().Error(err)
+				return c.NoContent(http.StatusInternalServerError)
+			}
+		} else {
+			totals, ok = omTotalScore.Get(course.ID)
+			if !ok {
+				query := "SELECT IFNULL(SUM(`submissions`.`score`), 0) AS `total_score`" +
+					" FROM `users`" +
+					" JOIN `registrations` ON `users`.`id` = `registrations`.`user_id`" +
+					" JOIN `courses` ON `registrations`.`course_id` = `courses`.`id`" +
+					" LEFT JOIN `classes` ON `courses`.`id` = `classes`.`course_id`" +
+					" LEFT JOIN `submissions` ON `users`.`id` = `submissions`.`user_id` AND `submissions`.`class_id` = `classes`.`id`" +
+					" WHERE `courses`.`id` = ?" +
+					" GROUP BY `users`.`id`"
+				if err := h.DB.Select(&totals, query, course.ID); err != nil {
+					c.Logger().Error(err)
+					return c.NoContent(http.StatusInternalServerError)
+				}
+				omTotalScore.Set(course.ID, totals)
+			}
 		}
 
 		courseResults = append(courseResults, CourseResult{
@@ -988,6 +1034,9 @@ func (h *handlers) SetCourseStatus(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 	omGpa.Update()
+	if req.Status == StatusClosed {
+		omClosedCourseMap[courseID] = struct{}{}
+	}
 	if err := tx.Commit(); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
