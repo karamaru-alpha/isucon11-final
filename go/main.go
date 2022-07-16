@@ -1515,7 +1515,7 @@ func (h *handlers) AddAnnouncement(c echo.Context) error {
 	defer tx.Rollback()
 
 	var course Course
-	if err := tx.Get(&course, "SELECT * FROM `courses` WHERE `id` = ?", req.CourseID); err != nil {
+	if err := tx.Select(&course, "SELECT * FROM `courses` WHERE `id` = ? LIMIT 1", req.CourseID); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
