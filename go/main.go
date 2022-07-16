@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	log2 "github.com/labstack/gommon/log"
 	"golang.org/x/sync/singleflight"
@@ -36,6 +37,36 @@ const (
 
 type handlers struct {
 	DB *sqlx.DB
+}
+
+type omGpaT struct {
+	M        sync.RWMutex
+	IsChange bool
+	V        []float64
+}
+
+var omGpa omGpaT
+
+func (o *omGpaT) Get() ([]float64, bool) {
+	o.M.RLock()
+	defer o.M.RUnlock()
+	if o.IsChange {
+		return nil, false
+	}
+	return o.V, true
+}
+
+func (o *omGpaT) Set(v []float64) {
+	o.M.Lock()
+	o.V = append(o.V, v...)
+	o.IsChange = false
+	o.M.Unlock()
+}
+
+func (o *omGpaT) Update() {
+	o.M.Lock()
+	o.IsChange = true
+	o.M.Unlock()
 }
 
 func main() {
@@ -678,27 +709,31 @@ func (h *handlers) GetGrades(c echo.Context) error {
 	// GPAの統計値
 	// 一つでも修了した科目がある学生のGPA一覧
 	var gpas []float64
-	_, err, _ = group1.Do("group1", func() (interface{}, error) {
-		query = "SELECT IFNULL(SUM(`submissions`.`score` * `courses`.`credit`), 0) / 100 / `credits`.`credits` AS `gpa`" +
-			" FROM `users`" +
-			" JOIN (" +
-			"     SELECT `users`.`id` AS `user_id`, SUM(`courses`.`credit`) AS `credits`" +
-			"     FROM `users`" +
-			"     JOIN `registrations` ON `users`.`id` = `registrations`.`user_id`" +
-			"     JOIN `courses` ON `registrations`.`course_id` = `courses`.`id` AND `courses`.`status` = ?" +
-			"     GROUP BY `users`.`id`" +
-			" ) AS `credits` ON `credits`.`user_id` = `users`.`id`" +
-			" JOIN `registrations` ON `users`.`id` = `registrations`.`user_id`" +
-			" JOIN `courses` ON `registrations`.`course_id` = `courses`.`id` AND `courses`.`status` = ?" +
-			" LEFT JOIN `classes` ON `courses`.`id` = `classes`.`course_id`" +
-			" LEFT JOIN `submissions` ON `users`.`id` = `submissions`.`user_id` AND `submissions`.`class_id` = `classes`.`id`" +
-			" WHERE `users`.`type` = ?" +
-			" GROUP BY `users`.`id`"
-		return nil, h.DB.Select(&gpas, query, StatusClosed, StatusClosed, Student)
-	})
-	if err != nil {
-		c.Logger().Error(err)
-		return c.NoContent(http.StatusInternalServerError)
+	var ok bool
+	gpas, ok = omGpa.Get()
+	if !ok {
+		_, err, _ = group1.Do("group1", func() (interface{}, error) {
+			query = "SELECT IFNULL(SUM(`submissions`.`score` * `courses`.`credit`), 0) / 100 / `credits`.`credits` AS `gpa`" +
+				" FROM `users`" +
+				" JOIN (" +
+				"     SELECT `users`.`id` AS `user_id`, SUM(`courses`.`credit`) AS `credits`" +
+				"     FROM `users`" +
+				"     JOIN `registrations` ON `users`.`id` = `registrations`.`user_id`" +
+				"     JOIN `courses` ON `registrations`.`course_id` = `courses`.`id` AND `courses`.`status` = ?" +
+				"     GROUP BY `users`.`id`" +
+				" ) AS `credits` ON `credits`.`user_id` = `users`.`id`" +
+				" JOIN `registrations` ON `users`.`id` = `registrations`.`user_id`" +
+				" JOIN `courses` ON `registrations`.`course_id` = `courses`.`id` AND `courses`.`status` = ?" +
+				" LEFT JOIN `classes` ON `courses`.`id` = `classes`.`course_id`" +
+				" LEFT JOIN `submissions` ON `users`.`id` = `submissions`.`user_id` AND `submissions`.`class_id` = `classes`.`id`" +
+				" WHERE `users`.`type` = ?" +
+				" GROUP BY `users`.`id`"
+			return nil, h.DB.Select(&gpas, query, StatusClosed, StatusClosed, Student)
+		})
+		if err != nil {
+			c.Logger().Error(err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
 	}
 
 	res := GetGradeResponse{
@@ -952,7 +987,7 @@ func (h *handlers) SetCourseStatus(c echo.Context) error {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
-
+	omGpa.Update()
 	if err := tx.Commit(); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
