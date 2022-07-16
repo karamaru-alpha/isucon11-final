@@ -578,13 +578,63 @@ func (h *handlers) GetGrades(c echo.Context) error {
 
 	// 履修している科目一覧取得
 	var registeredCourses []Course
-	query := "SELECT `courses`.*" +
-		" FROM `registrations`" +
-		" JOIN `courses` ON `registrations`.`course_id` = `courses`.`id`" +
-		" WHERE `user_id` = ?"
+	query := "SELECT b.* FROM `registrations` a JOIN `courses` b ON a.`course_id` = b.`id` WHERE a.`user_id` = ?"
 	if err := h.DB.Select(&registeredCourses, query, userID); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
+	}
+
+	var courseIDs []string
+	for _, v := range registeredCourses {
+		courseIDs = append(courseIDs, v.ID)
+	}
+	var allClasses []Class
+	query, params, err := sqlx.In("SELECT * FROM `classes` WHERE `course_id` IN (?) ORDER BY `part` DESC", courseIDs)
+	if err := h.DB.Select(&allClasses, h.DB.Rebind(query), params...); err != nil {
+		c.Logger().Error(err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
+	classMap := make(map[string][]Class, len(registeredCourses))
+	for _, v := range allClasses {
+		classMap[v.CourseID] = append(classMap[v.CourseID], v)
+	}
+
+	var classIDs []string
+	for _, v := range allClasses {
+		classIDs = append(classIDs, v.ID)
+	}
+
+	type Counter struct {
+		ClassID         string `db:"class_id"`
+		SubmissionCount int    `db:"submission_count"`
+	}
+	var counters []Counter
+	query, params, err = sqlx.In("SELECT `class_id`, COUNT(*) AS `submission_count` FROM `submissions` WHERE `class_id` IN (?) GROUP BY `class_id`", classIDs)
+	if err := h.DB.Select(&counters, h.DB.Rebind(query), params...); err != nil {
+		c.Logger().Error(err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+	submissionCounterMap := make(map[string]int, len(counters))
+	for _, v := range counters {
+		submissionCounterMap[v.ClassID] = v.SubmissionCount
+	}
+
+	type Scorer struct {
+		ClassID string        `db:"class_id"`
+		Score   sql.NullInt32 `db:"score"`
+	}
+	scorers := make([]Scorer, 0, len(classIDs))
+	query, params, err = sqlx.In("SELECT `class_id`, `submissions`.`score` FROM `submissions` WHERE `user_id` = ? AND `class_id` IN (?)", userID, classIDs)
+	if err := h.DB.Select(&scorers, h.DB.Rebind(query), params...); err != nil {
+		c.Logger().Error(err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+	myScoreMap := make(map[string]int, len(scorers))
+	for _, v := range scorers {
+		if v.Score.Valid {
+			myScoreMap[v.ClassID] = int(v.Score.Int32)
+		}
 	}
 
 	// 科目毎の成績計算処理
@@ -593,31 +643,16 @@ func (h *handlers) GetGrades(c echo.Context) error {
 	myCredits := 0
 	for _, course := range registeredCourses {
 		// 講義一覧の取得
-		var classes []Class
-		query = "SELECT *" +
-			" FROM `classes`" +
-			" WHERE `course_id` = ?" +
-			" ORDER BY `part` DESC"
-		if err := h.DB.Select(&classes, query, course.ID); err != nil {
-			c.Logger().Error(err)
-			return c.NoContent(http.StatusInternalServerError)
-		}
+		classes := classMap[course.ID]
 
 		// 講義毎の成績計算処理
 		classScores := make([]ClassScore, 0, len(classes))
 		var myTotalScore int
 		for _, class := range classes {
-			var submissionsCount int
-			if err := h.DB.Get(&submissionsCount, "SELECT COUNT(*) FROM `submissions` WHERE `class_id` = ?", class.ID); err != nil {
-				c.Logger().Error(err)
-				return c.NoContent(http.StatusInternalServerError)
-			}
+			submissionsCount := submissionCounterMap[class.ID]
 
-			var myScore sql.NullInt64
-			if err := h.DB.Get(&myScore, "SELECT `submissions`.`score` FROM `submissions` WHERE `user_id` = ? AND `class_id` = ?", userID, class.ID); err != nil && err != sql.ErrNoRows {
-				c.Logger().Error(err)
-				return c.NoContent(http.StatusInternalServerError)
-			} else if err == sql.ErrNoRows || !myScore.Valid {
+			myScore, ok := myScoreMap[class.ID]
+			if !ok {
 				classScores = append(classScores, ClassScore{
 					ClassID:    class.ID,
 					Part:       class.Part,
@@ -626,7 +661,7 @@ func (h *handlers) GetGrades(c echo.Context) error {
 					Submitters: submissionsCount,
 				})
 			} else {
-				score := int(myScore.Int64)
+				score := myScore
 				myTotalScore += score
 				classScores = append(classScores, ClassScore{
 					ClassID:    class.ID,
