@@ -734,6 +734,7 @@ func (h *handlers) GetGrades(c echo.Context) error {
 			c.Logger().Error(err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
+		omGpa.Set(gpas)
 	}
 
 	res := GetGradeResponse{
