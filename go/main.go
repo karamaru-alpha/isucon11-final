@@ -578,13 +578,26 @@ func (h *handlers) GetGrades(c echo.Context) error {
 
 	// 履修している科目一覧取得
 	var registeredCourses []Course
-	query := "SELECT `courses`.*" +
-		" FROM `registrations`" +
-		" JOIN `courses` ON `registrations`.`course_id` = `courses`.`id`" +
-		" WHERE `user_id` = ?"
+	query := "SELECT `courses`.* FROM `registrations` a JOIN `courses` b ON a.`course_id` = b.`id` WHERE `user_id` = ?"
 	if err := h.DB.Select(&registeredCourses, query, userID); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
+	}
+
+	var courseIDs []string
+	for _, v := range registeredCourses {
+		courseIDs = append(courseIDs, v.ID)
+	}
+	var allClasses []Class
+	query, params, err := sqlx.In("SELECT * FROM `classes` WHERE `course_id` IN (?) ORDER BY `part` DESC", courseIDs)
+	if err := h.DB.Select(&allClasses, h.DB.Rebind(query), params...); err != nil {
+		c.Logger().Error(err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
+	classMap := make(map[string][]Class, len(registeredCourses))
+	for _, v := range allClasses {
+		classMap[v.CourseID] = append(classMap[v.CourseID], v)
 	}
 
 	// 科目毎の成績計算処理
@@ -593,15 +606,7 @@ func (h *handlers) GetGrades(c echo.Context) error {
 	myCredits := 0
 	for _, course := range registeredCourses {
 		// 講義一覧の取得
-		var classes []Class
-		query = "SELECT *" +
-			" FROM `classes`" +
-			" WHERE `course_id` = ?" +
-			" ORDER BY `part` DESC"
-		if err := h.DB.Select(&classes, query, course.ID); err != nil {
-			c.Logger().Error(err)
-			return c.NoContent(http.StatusInternalServerError)
-		}
+		classes := classMap[course.ID]cm
 
 		// 講義毎の成績計算処理
 		classScores := make([]ClassScore, 0, len(classes))
