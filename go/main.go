@@ -691,12 +691,14 @@ func (h *handlers) GetGrades(c echo.Context) error {
 			return c.NoContent(http.StatusInternalServerError)
 		}
 
+		totals = append(totals, make([]int, totalUserCnt-len(totals))...)
+
 		courseResults = append(courseResults, CourseResult{
 			Name:             course.Name,
 			Code:             course.Code,
 			TotalScore:       myTotalScore,
-			TotalScoreTScore: tScoreInt(totalUserCnt, myTotalScore, totals),
-			TotalScoreAvg:    averageInt(totalUserCnt, totals, 0),
+			TotalScoreTScore: tScoreInt(myTotalScore, totals),
+			TotalScoreAvg:    averageInt(totals, 0),
 			TotalScoreMax:    maxInt(totals, 0),
 			TotalScoreMin:    minInt(totals, 0),
 			ClassScores:      classScores,

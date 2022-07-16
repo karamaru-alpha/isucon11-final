@@ -40,7 +40,7 @@ func newULID() string {
 
 // ----- int -----
 
-func averageInt(cnt int, arr []int, or float64) float64 {
+func averageInt(arr []int, or float64) float64 {
 	if len(arr) == 0 {
 		return or
 	}
@@ -48,7 +48,7 @@ func averageInt(cnt int, arr []int, or float64) float64 {
 	for _, v := range arr {
 		sum += v
 	}
-	return float64(sum) / float64(cnt)
+	return float64(sum) / float64(len(arr))
 }
 
 func maxInt(arr []int, or int) int {
@@ -77,7 +77,7 @@ func minInt(arr []int, or int) int {
 	return min
 }
 
-func stdDevInt(cnt int, arr []int, avg float64) float64 {
+func stdDevInt(arr []int, avg float64) float64 {
 	if len(arr) == 0 {
 		return 0
 	}
@@ -85,12 +85,12 @@ func stdDevInt(cnt int, arr []int, avg float64) float64 {
 	for _, v := range arr {
 		sdmSum += math.Pow(float64(v)-avg, 2)
 	}
-	return math.Sqrt(sdmSum / float64(cnt))
+	return math.Sqrt(sdmSum / float64(len(arr)))
 }
 
-func tScoreInt(cnt int, v int, arr []int) float64 {
-	avg := averageInt(cnt, arr, 0)
-	stdDev := stdDevInt(cnt, arr, avg)
+func tScoreInt(v int, arr []int) float64 {
+	avg := averageInt(arr, 0)
+	stdDev := stdDevInt(arr, avg)
 	if stdDev == 0 {
 		return 50
 	} else {
