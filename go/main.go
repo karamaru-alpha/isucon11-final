@@ -578,7 +578,7 @@ func (h *handlers) GetGrades(c echo.Context) error {
 
 	// 履修している科目一覧取得
 	var registeredCourses []Course
-	query := "SELECT `courses`.* FROM `registrations` a JOIN `courses` b ON a.`course_id` = b.`id` WHERE `user_id` = ?"
+	query := "SELECT b.* FROM `registrations` a JOIN `courses` b ON a.`course_id` = b.`id` WHERE a.`user_id` = ?"
 	if err := h.DB.Select(&registeredCourses, query, userID); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
