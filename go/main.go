@@ -185,7 +185,9 @@ func (h *handlers) Initialize(c echo.Context) error {
 
 	dbForInit.Exec("DROP TABLE `announcements`")
 	dbForInit.Exec("DROP TABLE `unread_announcements`")
-	
+	dbForInit2.Exec("DROP TABLE `classes`")
+	dbForInit2.Exec("DROP TABLE `courses`")
+
 	wg.Wait()
 
 	res := InitializeResponse{
