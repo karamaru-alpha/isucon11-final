@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -16,8 +17,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bytedance/sonic/decoder"
+	"github.com/bytedance/sonic/encoder"
+	
 	"github.com/go-sql-driver/mysql"
-	"github.com/goccy/go-json"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo-contrib/session"
@@ -44,11 +47,18 @@ type handlers struct {
 type JSONSerializer struct{}
 
 func (j *JSONSerializer) Serialize(c echo.Context, i interface{}, indent string) error {
-	return json.NewEncoder(c.Response()).Encode(i)
+	buf, err := encoder.Encode(i, 0)
+	if err != nil {
+		return err
+	}
+	_, err = c.Response().Write(buf)
+	return err
 }
 
 func (j *JSONSerializer) Deserialize(c echo.Context, i interface{}) error {
-	return json.NewDecoder(c.Request().Body).Decode(i)
+	var buf bytes.Buffer
+	buf.ReadFrom(c.Request().Body)
+	return decoder.NewDecoder(buf.String()).Decode(i)
 }
 
 func main() {
