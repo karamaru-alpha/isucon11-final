@@ -42,7 +42,7 @@ CREATE TABLE `registrations`
 
 CREATE TABLE `classes`
 (
-    `id`                CHAR(26) PRIMARY KEY,
+    `id`                CHAR(26) PRIMARY KEY CHARACTER SET latin1,
     `course_id`         CHAR(26)         NOT NULL,
     `part`              TINYINT UNSIGNED NOT NULL,
     `title`             VARCHAR(255)     NOT NULL,
@@ -53,8 +53,8 @@ CREATE TABLE `classes`
 
 CREATE TABLE `submissions`
 (
-    `user_id`   CHAR(26)     NOT NULL,
-    `class_id`  CHAR(26)     NOT NULL,
+    `user_id`   CHAR(26)     NOT NULL CHARACTER SET latin1,
+    `class_id`  CHAR(26)     NOT NULL CHARACTER SET latin1,
     `file_name` VARCHAR(255) NOT NULL,
     `score`     TINYINT UNSIGNED,
     PRIMARY KEY (`user_id`, `class_id`),
@@ -63,16 +63,17 @@ CREATE TABLE `submissions`
 
 CREATE TABLE `announcements`
 (
-    `id`         CHAR(26) PRIMARY KEY,
-    `course_id`  CHAR(26)     NOT NULL,
+    `id`         CHAR(26) PRIMARY KEY CHARACTER SET latin1,
+    `course_id`  CHAR(26)     NOT NULL CHARACTER SET latin1,
     `title`      VARCHAR(255) NOT NULL,
     `message`    TEXT         NOT NULL
 );
 
 CREATE TABLE `unread_announcements`
 (
-    `announcement_id` CHAR(26)   NOT NULL,
-    `user_id`         CHAR(26)   NOT NULL,
+    `announcement_id` CHAR(26)   NOT NULL CHARACTER SET latin1,
+    `user_id`         CHAR(26)   NOT NULL CHARACTER SET latin1
+,
     `is_deleted`      TINYINT(1) NOT NULL DEFAULT false,
     PRIMARY KEY (`announcement_id`, `user_id`)
 );
