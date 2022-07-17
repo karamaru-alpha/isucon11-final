@@ -88,7 +88,7 @@ isu3:
 	sudo cp my.cnf /etc/mysql/my.cnf
 	#sudo cp nginx.conf /etc/nginx/nginx.conf
 	#sudo cp $(APP).conf /etc/nginx/sites-enabled/$(APP).conf
-	#(cd $(GO_PATH) && go build -o $(APP))
+	(cd $(GO_PATH) && go build -o $(APP))
 	#sudo rm -f $(NGINX_LOG)
 	#sudo rm -f $(NGINX_ERR)
 	sudo rm -f $(MYSQL_LOG)
@@ -96,7 +96,7 @@ isu3:
 	#sudo cp /dev/null $(GO_LOG)
 	#sudo systemctl restart nginx
 	sudo systemctl restart mysql
-	#sudo systemctl restart $(APP).go.service
+	sudo systemctl restart $(APP).go.service
 
 .PHONY: slow
 slow:
