@@ -142,7 +142,7 @@ func main() {
 		e.Logger.Fatal(e.Start(""))
 	} else {
 		e.Logger.Error(e.StartServer(e.Server))
-	})
+	}
 }
 
 type InitializeResponse struct {
