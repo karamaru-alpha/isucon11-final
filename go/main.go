@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -696,97 +697,102 @@ func (h *handlers) GetGrades(c echo.Context) error {
 	courseResults := make([]CourseResult, 0, len(registeredCourses))
 	myGPA := 0.0
 	myCredits := 0
-	for _, course := range registeredCourses {
-		// 講義一覧の取得
-		classes := classMap[course.ID]
+	var wg sync.WaitGroup
+	wg.Add(1)
+	var errg error
+	go func(){
+		defer wg.Done()
+		for _, course := range registeredCourses {
+			// 講義一覧の取得
+			classes := classMap[course.ID]
 
-		// 講義毎の成績計算処理
-		classScores := make([]ClassScore, 0, len(classes))
-		var myTotalScore int
-		for _, class := range classes {
-			submissionsCount := submissionCounterMap[class.ID]
+			// 講義毎の成績計算処理
+			classScores := make([]ClassScore, 0, len(classes))
+			var myTotalScore int
+			for _, class := range classes {
+				submissionsCount := submissionCounterMap[class.ID]
 
-			myScore, ok := myScoreMap[class.ID]
-			if !ok {
-				classScores = append(classScores, ClassScore{
-					ClassID:    class.ID,
-					Part:       class.Part,
-					Title:      class.Title,
-					Score:      nil,
-					Submitters: submissionsCount,
-				})
-			} else {
-				score := myScore
-				myTotalScore += score
-				classScores = append(classScores, ClassScore{
-					ClassID:    class.ID,
-					Part:       class.Part,
-					Title:      class.Title,
-					Score:      &score,
-					Submitters: submissionsCount,
-				})
-			}
-		}
-
-		// この科目を履修している学生のTotalScore一覧を取得
-
-		totals := make([]int, 0)
-		//query := "SELECT IFNULL(SUM(`submissions`.`score`), 0) AS `total_score`" +
-		//	" FROM `users`" +
-		//	" JOIN `registrations` ON `users`.`id` = `registrations`.`user_id`" +
-		//	" JOIN `courses` ON `registrations`.`course_id` = `courses`.`id`" +
-		//	" LEFT JOIN `classes` ON `courses`.`id` = `classes`.`course_id`" +
-		//	" LEFT JOIN `submissions` ON `users`.`id` = `submissions`.`user_id` AND `submissions`.`class_id` = `classes`.`id`" +
-		//	" WHERE `courses`.`id` = ?" +
-		//	" GROUP BY `users`.`id`"
-		query := "SELECT IFNULL(SUM(`submissions`.`score`), 0) AS `total_score` FROM `submissions` JOIN `classes` ON `submissions`.`class_id` = `classes`.`id` WHERE `classes`.`course_id`= ? GROUP BY `submissions`.`user_id`"
-		if err := h.DB.Select(&totals, query, course.ID); err != nil {
-			c.Logger().Error(err)
-			return c.NoContent(http.StatusInternalServerError)
-		}
-
-		var totalUserCnt int
-		if err := h.DB.Get(&totalUserCnt, "SELECT COUNT(*) FROM `registrations` WHERE `course_id` = ?", course.ID); err != nil {
-			c.Logger().Error(err)
-			return c.NoContent(http.StatusInternalServerError)
-		}
-
-		if len(totals) > 0 {
-			for {
-				if len(totals) == totalUserCnt {
-					break
+				myScore, ok := myScoreMap[class.ID]
+				if !ok {
+					classScores = append(classScores, ClassScore{
+						ClassID:    class.ID,
+						Part:       class.Part,
+						Title:      class.Title,
+						Score:      nil,
+						Submitters: submissionsCount,
+					})
+				} else {
+					score := myScore
+					myTotalScore += score
+					classScores = append(classScores, ClassScore{
+						ClassID:    class.ID,
+						Part:       class.Part,
+						Title:      class.Title,
+						Score:      &score,
+						Submitters: submissionsCount,
+					})
 				}
-				totals = append(totals, 0)
+			}
+
+			// この科目を履修している学生のTotalScore一覧を取得
+
+			totals := make([]int, 0)
+			//query := "SELECT IFNULL(SUM(`submissions`.`score`), 0) AS `total_score`" +
+			//	" FROM `users`" +
+			//	" JOIN `registrations` ON `users`.`id` = `registrations`.`user_id`" +
+			//	" JOIN `courses` ON `registrations`.`course_id` = `courses`.`id`" +
+			//	" LEFT JOIN `classes` ON `courses`.`id` = `classes`.`course_id`" +
+			//	" LEFT JOIN `submissions` ON `users`.`id` = `submissions`.`user_id` AND `submissions`.`class_id` = `classes`.`id`" +
+			//	" WHERE `courses`.`id` = ?" +
+			//	" GROUP BY `users`.`id`"
+			query := "SELECT IFNULL(SUM(`submissions`.`score`), 0) AS `total_score` FROM `submissions` JOIN `classes` ON `submissions`.`class_id` = `classes`.`id` WHERE `classes`.`course_id`= ? GROUP BY `submissions`.`user_id`"
+			if errg = h.DB.Select(&totals, query, course.ID); err != nil {
+				c.Logger().Error(err)
+				return
+			}
+
+			var totalUserCnt int
+			if errg = h.DB.Get(&totalUserCnt, "SELECT COUNT(*) FROM `registrations` WHERE `course_id` = ?", course.ID); err != nil {
+				c.Logger().Error(err)
+				return
+			}
+
+			if len(totals) > 0 {
+				for {
+					if len(totals) == totalUserCnt {
+						break
+					}
+					totals = append(totals, 0)
+				}
+			}
+
+			courseResults = append(courseResults, CourseResult{
+				Name:             course.Name,
+				Code:             course.Code,
+				TotalScore:       myTotalScore,
+				TotalScoreTScore: tScoreInt(myTotalScore, totals),
+				TotalScoreAvg:    averageInt(totals, 0),
+				TotalScoreMax:    maxInt(totals, 0),
+				TotalScoreMin:    minInt(totals, 0),
+				ClassScores:      classScores,
+			})
+
+			// 自分のGPA計算
+			if course.Status == StatusClosed {
+				myGPA += float64(myTotalScore * int(course.Credit))
+				myCredits += int(course.Credit)
 			}
 		}
-
-		courseResults = append(courseResults, CourseResult{
-			Name:             course.Name,
-			Code:             course.Code,
-			TotalScore:       myTotalScore,
-			TotalScoreTScore: tScoreInt(myTotalScore, totals),
-			TotalScoreAvg:    averageInt(totals, 0),
-			TotalScoreMax:    maxInt(totals, 0),
-			TotalScoreMin:    minInt(totals, 0),
-			ClassScores:      classScores,
-		})
-
-		// 自分のGPA計算
-		if course.Status == StatusClosed {
-			myGPA += float64(myTotalScore * int(course.Credit))
-			myCredits += int(course.Credit)
+		if myCredits > 0 {
+			myGPA = myGPA / 100 / float64(myCredits)
 		}
-	}
-	if myCredits > 0 {
-		myGPA = myGPA / 100 / float64(myCredits)
-	}
+	}()
+
+
 
 	// GPAの統計値
 	// 一つでも修了した科目がある学生のGPA一覧
 	var gpas []float64
-	//var ok bool
-	//gpas, ok = omGpa.Get()
-	//if !ok {
 	v, err, _ := group1.Do("group1", func() (interface{}, error) {
 		query = "SELECT IFNULL(SUM(`submissions`.`score` * `courses`.`credit`), 0) / 100 / `credits`.`credits` AS `gpa`" +
 			" FROM `users`" +
@@ -812,6 +818,13 @@ func (h *handlers) GetGrades(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 	gpas = v.([]float64)
+
+
+	wg.Wait()
+	if errg != nil {
+		c.Logger().Error(err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
 
 	res := GetGradeResponse{
 		Summary: Summary{
