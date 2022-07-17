@@ -80,8 +80,14 @@ func main() {
 	db.SetMaxIdleConns(SQL_CONN_COUNT)
 	db.SetConnMaxLifetime(SQL_CONN_COUNT * time.Second)
 
+	db2, _ := GetDB2(false)
+	db2.SetMaxOpenConns(SQL_CONN_COUNT)
+	db2.SetMaxIdleConns(SQL_CONN_COUNT)
+	db2.SetConnMaxLifetime(SQL_CONN_COUNT * time.Second)
+
 	h := &handlers{
-		DB: db,
+		DB:  db,
+		DB2: db2,
 	}
 
 	e.POST("/initialize", h.Initialize)
@@ -176,6 +182,8 @@ func (h *handlers) Initialize(c echo.Context) error {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
+
+	wg.Wait()
 
 	res := InitializeResponse{
 		Language: "go",
