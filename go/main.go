@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -122,7 +123,26 @@ func main() {
 		}
 	}
 
-	e.Logger.Error(e.StartServer(e.Server))
+	if os.Getenv("ISU") == "1" {
+		socket_file := "/home/isucon/webapp/tmp/app.sock"
+		os.Remove(socket_file)
+
+		l, err := net.Listen("unix", socket_file)
+		if err != nil {
+			e.Logger.Fatal(err)
+		}
+
+		// go runユーザとnginxのユーザ（グループ）を同じにすれば777じゃなくてok
+		err = os.Chmod(socket_file, 0777)
+		if err != nil {
+			e.Logger.Fatal(err)
+		}
+
+		e.Listener = l
+		e.Logger.Fatal(e.Start(""))
+	} else {
+		e.Logger.Error(e.StartServer(e.Server))
+	})
 }
 
 type InitializeResponse struct {
