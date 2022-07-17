@@ -36,7 +36,8 @@ CREATE TABLE `registrations`
 (
     `course_id` CHAR(26),
     `user_id`   CHAR(26),
-    PRIMARY KEY (`course_id`, `user_id`)
+    PRIMARY KEY (`course_id`, `user_id`),
+    INDEX (`user_id`)
 );
 
 CREATE TABLE `classes`
@@ -56,7 +57,8 @@ CREATE TABLE `submissions`
     `class_id`  CHAR(26)     NOT NULL,
     `file_name` VARCHAR(255) NOT NULL,
     `score`     TINYINT UNSIGNED,
-    PRIMARY KEY (`user_id`, `class_id`)
+    PRIMARY KEY (`user_id`, `class_id`),
+    INDEX (`class_id`)
 );
 
 CREATE TABLE `announcements`
