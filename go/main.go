@@ -143,7 +143,7 @@ func main() {
 		e.Logger.Fatal(e.Start(""))
 	} else {
 		e.Logger.Error(e.StartServer(e.Server))
-	})
+	}
 }
 
 type InitializeResponse struct {
@@ -700,7 +700,7 @@ func (h *handlers) GetGrades(c echo.Context) error {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	var errg error
-	go func(){
+	go func() {
 		defer wg.Done()
 		for _, course := range registeredCourses {
 			// 講義一覧の取得
@@ -788,8 +788,6 @@ func (h *handlers) GetGrades(c echo.Context) error {
 		}
 	}()
 
-
-
 	// GPAの統計値
 	// 一つでも修了した科目がある学生のGPA一覧
 	var gpas []float64
@@ -818,7 +816,6 @@ func (h *handlers) GetGrades(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 	gpas = v.([]float64)
-
 
 	wg.Wait()
 	if errg != nil {
