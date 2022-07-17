@@ -36,7 +36,8 @@ const (
 )
 
 type handlers struct {
-	DB *sqlx.DB
+	DB  *sqlx.DB
+	DB2 *sqlx.DB
 }
 
 type JSONSerializer struct{}
@@ -78,8 +79,14 @@ func main() {
 	db.SetMaxIdleConns(SQL_CONN_COUNT)
 	db.SetConnMaxLifetime(SQL_CONN_COUNT * time.Second)
 
+	db2, _ := GetDB2(false)
+	db2.SetMaxOpenConns(SQL_CONN_COUNT)
+	db2.SetMaxIdleConns(SQL_CONN_COUNT)
+	db2.SetConnMaxLifetime(SQL_CONN_COUNT * time.Second)
+
 	h := &handlers{
-		DB: db,
+		DB:  db,
+		DB2: db2,
 	}
 
 	e.POST("/initialize", h.Initialize)
@@ -125,6 +132,7 @@ type InitializeResponse struct {
 // Initialize POST /initialize 初期化エンドポイント
 func (h *handlers) Initialize(c echo.Context) error {
 	dbForInit, _ := GetDB(true)
+	dbForInit2, _ := GetDB2(true)
 
 	files := []string{
 		"1_schema.sql",
@@ -132,15 +140,20 @@ func (h *handlers) Initialize(c echo.Context) error {
 		"3_sample.sql",
 		"4.sql",
 	}
+
 	for _, file := range files {
 		data, err := os.ReadFile(SQLDirectory + file)
 		if err != nil {
 			c.Logger().Error(err)
-			return c.NoContent(http.StatusInternalServerError)
+			panic(err)
 		}
 		if _, err := dbForInit.Exec(string(data)); err != nil {
 			c.Logger().Error(err)
-			return c.NoContent(http.StatusInternalServerError)
+			panic(err)
+		}
+		if _, err := dbForInit2.Exec(string(data)); err != nil {
+			c.Logger().Error(err)
+			panic(err)
 		}
 	}
 
@@ -152,6 +165,11 @@ func (h *handlers) Initialize(c echo.Context) error {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
+
+	dbForInit.Exec("DROP TABLE `announcements`")
+	dbForInit.Exec("DROP TABLE `unread_announcements`")
+	dbForInit2.Exec("DROP TABLE `classes`")
+	dbForInit2.Exec("DROP TABLE `courses`")
 
 	res := InitializeResponse{
 		Language: "go",
@@ -1245,7 +1263,7 @@ func (h *handlers) SubmitAssignment(c echo.Context) error {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
-	
+
 	if err := tx.Commit(); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
@@ -1403,7 +1421,7 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	tx, err := h.DB.Beginx()
+	tx, err := h.DB2.Beginx()
 	if err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
@@ -1411,7 +1429,7 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 	defer tx.Rollback()
 
 	var courseIDs []string
-	if err := tx.Select(&courseIDs, "SELECT `course_id` FROM `registrations` WHERE user_id = ?", userID); err != nil {
+	if err := h.DB.Select(&courseIDs, "SELECT `course_id` FROM `registrations` WHERE user_id = ?", userID); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
@@ -1532,7 +1550,7 @@ func (h *handlers) AddAnnouncement(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid format.")
 	}
 
-	tx, err := h.DB.Beginx()
+	tx, err := h.DB2.Beginx()
 	if err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
@@ -1540,7 +1558,7 @@ func (h *handlers) AddAnnouncement(c echo.Context) error {
 	defer tx.Rollback()
 
 	var courseName string
-	if err := tx.Get(&courseName, "SELECT `name` FROM `courses` WHERE `id` = ? LIMIT 1", req.CourseID); err != nil {
+	if err := h.DB.Get(&courseName, "SELECT `name` FROM `courses` WHERE `id` = ? LIMIT 1", req.CourseID); err != nil {
 		if err == sql.ErrNoRows {
 			return c.String(http.StatusNotFound, "No such course.")
 		}
@@ -1553,7 +1571,7 @@ func (h *handlers) AddAnnouncement(c echo.Context) error {
 		_ = tx.Rollback()
 		if mysqlErr, ok := err.(*mysql.MySQLError); ok && mysqlErr.Number == uint16(mysqlErrNumDuplicateEntry) {
 			var announcement Announcement
-			if err := h.DB.Get(&announcement, "SELECT * FROM `announcements` WHERE `id` = ?", req.ID); err != nil {
+			if err := tx.Get(&announcement, "SELECT * FROM `announcements` WHERE `id` = ?", req.ID); err != nil {
 				c.Logger().Error(err)
 				return c.NoContent(http.StatusInternalServerError)
 			}
@@ -1570,7 +1588,7 @@ func (h *handlers) AddAnnouncement(c echo.Context) error {
 	query := "SELECT `users`.* FROM `users`" +
 		" JOIN `registrations` ON `users`.`id` = `registrations`.`user_id`" +
 		" WHERE `registrations`.`course_id` = ?"
-	if err := tx.Select(&targets, query, req.CourseID); err != nil {
+	if err := h.DB.Select(&targets, query, req.CourseID); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
@@ -1609,7 +1627,7 @@ func (h *handlers) GetAnnouncementDetail(c echo.Context) error {
 
 	announcementID := c.Param("announcementID")
 
-	tx, err := h.DB.Beginx()
+	tx, err := h.DB2.Beginx()
 	if err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
@@ -1619,7 +1637,6 @@ func (h *handlers) GetAnnouncementDetail(c echo.Context) error {
 	var announcement AnnouncementDetail
 	query := "SELECT `announcements`.`id`, `announcements`.`course_id`, `announcements`.`course_name`, `announcements`.`title`, `announcements`.`message`, NOT `unread_announcements`.`is_deleted` AS `unread`" +
 		" FROM `announcements`" +
-		" JOIN `courses` ON `courses`.`id` = `announcements`.`course_id`" +
 		" JOIN `unread_announcements` ON `unread_announcements`.`announcement_id` = `announcements`.`id`" +
 		" WHERE `announcements`.`id` = ?" +
 		" AND `unread_announcements`.`user_id` = ?"
@@ -1631,7 +1648,8 @@ func (h *handlers) GetAnnouncementDetail(c echo.Context) error {
 	}
 
 	var registrationCount int
-	if err := tx.Get(&registrationCount, "SELECT COUNT(*) FROM `registrations` WHERE `course_id` = ? AND `user_id` = ?", announcement.CourseID, userID); err != nil {
+
+	if err := h.DB.Get(&registrationCount, "SELECT COUNT(*) FROM `registrations` WHERE `course_id` = ? AND `user_id` = ?", announcement.CourseID, userID); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
