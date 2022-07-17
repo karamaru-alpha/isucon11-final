@@ -64,10 +64,10 @@ CREATE TABLE `submissions`
 CREATE TABLE `announcements`
 (
     `id`         CHAR(26) CHARACTER SET latin1 PRIMARY KEY,
-    `course_id`  CHAR(26)   CHARACTER SET latin1
-        NOT NULL,
+    `course_id`  CHAR(26)   CHARACTER SET latin1 NOT NULL,
     `title`      VARCHAR(255) NOT NULL,
-    `message`    TEXT         NOT NULL
+    `message`    TEXT         NOT NULL,
+    INDEX (`course_id`)
 );
 
 CREATE TABLE `unread_announcements`
