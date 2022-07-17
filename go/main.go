@@ -1245,7 +1245,7 @@ func (h *handlers) SubmitAssignment(c echo.Context) error {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
-	
+
 	if err := tx.Commit(); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
@@ -1619,7 +1619,6 @@ func (h *handlers) GetAnnouncementDetail(c echo.Context) error {
 	var announcement AnnouncementDetail
 	query := "SELECT `announcements`.`id`, `announcements`.`course_id`, `announcements`.`course_name`, `announcements`.`title`, `announcements`.`message`, NOT `unread_announcements`.`is_deleted` AS `unread`" +
 		" FROM `announcements`" +
-		" JOIN `courses` ON `courses`.`id` = `announcements`.`course_id`" +
 		" JOIN `unread_announcements` ON `unread_announcements`.`announcement_id` = `announcements`.`id`" +
 		" WHERE `announcements`.`id` = ?" +
 		" AND `unread_announcements`.`user_id` = ?"
