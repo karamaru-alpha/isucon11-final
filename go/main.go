@@ -183,6 +183,9 @@ func (h *handlers) Initialize(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	dbForInit.Exec("DROP TABLE `announcements`")
+	dbForInit.Exec("DROP TABLE `unread_announcements`")
+	
 	wg.Wait()
 
 	res := InitializeResponse{
