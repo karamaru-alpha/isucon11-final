@@ -143,36 +143,30 @@ func (h *handlers) Initialize(c echo.Context) error {
 		"3_sample.sql",
 		"4.sql",
 	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for _, file := range files {
-			data, err := os.ReadFile(SQLDirectory + file)
-			if err != nil {
-				c.Logger().Error(err)
-				panic(err)
-			}
-			if _, err := dbForInit.Exec(string(data)); err != nil {
-				c.Logger().Error(err)
-				panic(err)
-			}
+
+	for _, file := range files {
+		data, err := os.ReadFile(SQLDirectory + file)
+		if err != nil {
+			c.Logger().Error(err)
+			panic(err)
 		}
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for _, file := range files {
-			data, err := os.ReadFile(SQLDirectory + file)
-			if err != nil {
-				c.Logger().Error(err)
-				panic(err)
-			}
-			if _, err := dbForInit2.Exec(string(data)); err != nil {
-				c.Logger().Error(err)
-				panic(err)
-			}
+		if _, err := dbForInit.Exec(string(data)); err != nil {
+			c.Logger().Error(err)
+			panic(err)
 		}
-	}()
+	}
+
+	for _, file := range files {
+		data, err := os.ReadFile(SQLDirectory + file)
+		if err != nil {
+			c.Logger().Error(err)
+			panic(err)
+		}
+		if _, err := dbForInit2.Exec(string(data)); err != nil {
+			c.Logger().Error(err)
+			panic(err)
+		}
+	}
 
 	if err := exec.Command("rm", "-rf", AssignmentsDirectory).Run(); err != nil {
 		c.Logger().Error(err)
