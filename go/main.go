@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/goccy/go-json"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo-contrib/session"
@@ -38,8 +39,19 @@ type handlers struct {
 	DB *sqlx.DB
 }
 
+type JSONSerializer struct{}
+
+func (j *JSONSerializer) Serialize(c echo.Context, i interface{}, indent string) error {
+	return json.NewEncoder(c.Response()).Encode(i)
+}
+
+func (j *JSONSerializer) Deserialize(c echo.Context, i interface{}) error {
+	return json.NewDecoder(c.Request().Body).Decode(i)
+}
+
 func main() {
 	e := echo.New()
+	e.JSONSerializer = &JSONSerializer{}
 
 	log.SetFlags(log.Lshortfile)
 	logfile, err := os.OpenFile("/var/log/go.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
