@@ -47,7 +47,7 @@ CREATE TABLE `classes`
     `title`             VARCHAR(255)     NOT NULL,
     `description`       TEXT             NOT NULL,
     `submission_closed` TINYINT(1)       NOT NULL DEFAULT false,
-    UNIQUE KEY `idx_classes_course_id_part` (`course_id`, `part`),
+    UNIQUE KEY `idx_classes_course_id_part` (`course_id`, `part`)
 );
 
 CREATE TABLE `submissions`
