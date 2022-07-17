@@ -61,7 +61,7 @@ func main() {
 	e.Use(session.Middleware(sessions.NewCookieStore([]byte("trapnomura"))))
 
 	db, _ := GetDB(false)
-	const SQL_CONN_COUNT = 40
+	const SQL_CONN_COUNT = 60
 	db.SetMaxOpenConns(SQL_CONN_COUNT)
 	db.SetMaxIdleConns(SQL_CONN_COUNT)
 	db.SetConnMaxLifetime(SQL_CONN_COUNT * time.Second)
