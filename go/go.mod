@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	github.com/go-sql-driver/mysql v1.6.0
+	github.com/goccy/go-json v0.9.10
 	github.com/gorilla/sessions v1.2.1
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/labstack/echo-contrib v0.11.0
