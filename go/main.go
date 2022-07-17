@@ -13,7 +13,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -135,8 +134,6 @@ func (h *handlers) Initialize(c echo.Context) error {
 	dbForInit, _ := GetDB(true)
 	dbForInit2, _ := GetDB2(true)
 
-	var wg sync.WaitGroup
-
 	files := []string{
 		"1_schema.sql",
 		"2_init.sql",
@@ -151,14 +148,6 @@ func (h *handlers) Initialize(c echo.Context) error {
 			panic(err)
 		}
 		if _, err := dbForInit.Exec(string(data)); err != nil {
-			c.Logger().Error(err)
-			panic(err)
-		}
-	}
-
-	for _, file := range files {
-		data, err := os.ReadFile(SQLDirectory + file)
-		if err != nil {
 			c.Logger().Error(err)
 			panic(err)
 		}
@@ -181,8 +170,6 @@ func (h *handlers) Initialize(c echo.Context) error {
 	dbForInit.Exec("DROP TABLE `unread_announcements`")
 	dbForInit2.Exec("DROP TABLE `classes`")
 	dbForInit2.Exec("DROP TABLE `courses`")
-
-	wg.Wait()
 
 	res := InitializeResponse{
 		Language: "go",
