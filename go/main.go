@@ -1412,7 +1412,7 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 	defer tx.Rollback()
 
 	var courseIDs []string
-	if err := tx.Select(&courseIDs, "SELECT `course_id` FROM `registrations` WHERE user_id", userID); err != nil {
+	if err := tx.Select(&courseIDs, "SELECT `course_id` FROM `registrations` WHERE user_id = ?", userID); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
