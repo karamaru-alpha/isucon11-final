@@ -1514,6 +1514,7 @@ type GetAnnouncementsResponse struct {
 
 // GetAnnouncementList GET /api/announcements お知らせ一覧取得
 func (h *handlers) GetAnnouncementList(c echo.Context) error {
+	//log.Print(c.Request().Header)
 	userID, _, _, err := getUserInfo(c)
 	if err != nil {
 		c.Logger().Error(err)
@@ -1558,11 +1559,6 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 		query += " AND 1=0"
 	}
 
-	query += " AND `unread_announcements`.`user_id` = ?" +
-		" ORDER BY `announcements`.`id` DESC" +
-		" LIMIT ? OFFSET ?"
-	args = append(args, userID)
-
 	var page int
 	if c.QueryParam("page") == "" {
 		page = 1
@@ -1573,9 +1569,23 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 		}
 	}
 	limit := 20
-	offset := limit * (page - 1)
-	// limitより多く上限を設定し、実際にlimitより多くレコードが取得できた場合は次のページが存在する
-	args = append(args, limit+1, offset)
+
+	if c.QueryParam("start") != "" {
+		query += " AND `unread_announcements`.`user_id` = ?" +
+			" AND `announcements`.`id` <= ?" +
+			" ORDER BY `announcements`.`id` DESC" +
+			" LIMIT ?"
+		args = append(args, userID, c.QueryParam("start"), limit+1)
+	} else {
+		query += " AND `unread_announcements`.`user_id` = ?" +
+			" ORDER BY `announcements`.`id` DESC" +
+			" LIMIT ? OFFSET ?"
+		args = append(args, userID)
+		offset := limit * (page - 1)
+
+		// limitより多く上限を設定し、実際にlimitより多くレコードが取得できた場合は次のページが存在する
+		args = append(args, limit+1, offset)
+	}
 
 	if err := tx.Select(&announcements, query, args...); err != nil {
 		c.Logger().Error(err)
@@ -1594,7 +1604,7 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 	}
 
 	var links []string
-	linkURL, err := url.Parse(c.Request().URL.Path + "?" + c.Request().URL.RawQuery)
+	linkURL, err := url.Parse(c.Request().URL.Path)
 	if err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
@@ -1607,6 +1617,7 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 		links = append(links, fmt.Sprintf("<%v>; rel=\"prev\"", linkURL))
 	}
 	if len(announcements) > limit {
+		q.Set("start", announcements[len(announcements)-1].ID)
 		q.Set("page", strconv.Itoa(page+1))
 		linkURL.RawQuery = q.Encode()
 		links = append(links, fmt.Sprintf("<%v>; rel=\"next\"", linkURL))
