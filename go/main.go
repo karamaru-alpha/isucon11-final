@@ -1442,7 +1442,7 @@ func (h *handlers) DownloadSubmittedAssignments(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	c.Response().Header().Set("X-Accel-Redirect", "/assignments/"+classID+".zip")
+	c.Response().Header().Set("x-accel-redirect", "/assignments/"+classID+".zip")
 	return c.NoContent(http.StatusOK)
 }
 
