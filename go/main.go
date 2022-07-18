@@ -592,9 +592,9 @@ func (h *handlers) RegisterCourses(c echo.Context) error {
 		for i, v := range newlyAdded {
 			args = append(args, v.ID)
 			if i == 0 {
-				placeHolders.WriteString(" (?, " + userID + ")")
+				placeHolders.WriteString(" (?, '" + userID + "')")
 			} else {
-				placeHolders.WriteString(",(?, " + userID + ")")
+				placeHolders.WriteString(",(?, '" + userID + "')")
 			}
 		}
 		_, err = tx.Exec("INSERT INTO `registrations` (`course_id`, `user_id`) VALUES"+placeHolders.String()+" ON DUPLICATE KEY UPDATE `course_id` = VALUES(`course_id`), `user_id` = VALUES(`user_id`)", args...)
