@@ -587,13 +587,22 @@ func (h *handlers) RegisterCourses(c echo.Context) error {
 	}
 
 	if len(newlyAdded) > 0 {
-		_, err = tx.NamedExec("INSERT INTO `registrations` (`course_id`, `user_id`) VALUES (:id, "+userID+") ON DUPLICATE KEY UPDATE `course_id` = VALUES(`course_id`), `user_id` = VALUES(`user_id`)", newlyAdded)
+		args := make([]interface{}, 0, len(newlyAdded))
+		placeHolders := &strings.Builder{}
+		for i, v := range newlyAdded {
+			args = append(args, v.ID)
+			if i == 0 {
+				placeHolders.WriteString(" (?, " + userID + ")")
+			} else {
+				placeHolders.WriteString(",(?, " + userID + ")")
+			}
+		}
+		_, err = tx.Exec("INSERT INTO `registrations` (`course_id`, `user_id`) VALUES"+placeHolders.String()+" ON DUPLICATE KEY UPDATE `course_id` = VALUES(`course_id`), `user_id` = VALUES(`user_id`)", args...)
 		if err != nil {
 			c.Logger().Error(err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
 	}
-
 	if err = tx.Commit(); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
