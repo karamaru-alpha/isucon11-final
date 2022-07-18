@@ -74,9 +74,8 @@ isu2:
 	#sudo rm -f $(NGINX_ERR)
 	sudo rm -f $(MYSQL_LOG)
 	sudo rm -f $(MYSQL_ERR)
-	sudo cp /dev/null $(GO_LOG)
-	#sudo systemctl
-# restart nginx
+	#sudo cp /dev/null $(GO_LOG)
+	#sudo systemctl restart nginx
 	sudo systemctl restart mysql
 	#sudo systemctl restart $(APP).go.service
 
@@ -94,7 +93,7 @@ isu3:
 	#sudo rm -f $(NGINX_ERR)
 	sudo rm -f $(MYSQL_LOG)
 	sudo rm -f $(MYSQL_ERR)
-	#sudo cp /dev/null $(GO_LOG)
+	sudo cp /dev/null $(GO_LOG)
 	#sudo systemctl restart nginx
 	sudo systemctl restart mysql
 	sudo systemctl restart $(APP).go.service
