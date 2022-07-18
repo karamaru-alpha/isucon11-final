@@ -1700,7 +1700,8 @@ func (h *handlers) AddAnnouncement(c echo.Context) error {
 	}
 
 	var userIDs []string
-	query := "SELECT `id` FROM `registrations` WHERE `course_id` = ?"
+	query := "SELECT `user_id` FROM `registrations` " +
+		"WHERE `course_id` = ?"
 	if err := h.DB.Select(&userIDs, query, req.CourseID); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
