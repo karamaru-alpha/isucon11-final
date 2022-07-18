@@ -1575,7 +1575,7 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 			" AND `announcements`.`id` <= ?" +
 			" ORDER BY `announcements`.`id` DESC" +
 			" LIMIT ?"
-		args = append(args, userID, c.QueryParam("start"), limit)
+		args = append(args, userID, c.QueryParam("start"), limit+1)
 	} else {
 		query += " AND `unread_announcements`.`user_id` = ?" +
 			" ORDER BY `announcements`.`id` DESC" +
