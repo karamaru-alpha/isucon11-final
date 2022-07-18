@@ -1699,7 +1699,7 @@ func (h *handlers) AddAnnouncement(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	if _, err := tx.Exec("INSERT INTO `unread_announcements` (`announcement_id`, `user_id`) SELECT ?, `users`.`id` FROM `users` JOIN `registrations` ON `users`.`id` = `registrations`.`user_id` WHERE `registrations`.`course_id` = ?", req.ID); err != nil {
+	if _, err := tx.Exec("INSERT INTO `unread_announcements` (`announcement_id`, `user_id`) SELECT ?, `users`.`id` FROM `users` JOIN `registrations` ON `users`.`id` = `registrations`.`user_id` WHERE `registrations`.`course_id` = ?", req.ID, req.CourseID); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
