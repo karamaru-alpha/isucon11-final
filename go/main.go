@@ -586,13 +586,15 @@ func (h *handlers) RegisterCourses(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, errors)
 	}
 
-	for _, course := range newlyAdded {
-		_, err = tx.Exec("INSERT INTO `registrations` (`course_id`, `user_id`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `course_id` = VALUES(`course_id`), `user_id` = VALUES(`user_id`)", course.ID, userID)
+	if len(newlyAdded) > 0 {
+		_, err = tx.Exec("INSERT INTO `registrations` (`course_id`, `user_id`) VALUES (:id, "+userID+") ON DUPLICATE KEY UPDATE `course_id` = VALUES(`course_id`), `user_id` = VALUES(`user_id`)", newlyAdded)
 		if err != nil {
 			c.Logger().Error(err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
 	}
+}
+
 
 	if err = tx.Commit(); err != nil {
 		c.Logger().Error(err)
