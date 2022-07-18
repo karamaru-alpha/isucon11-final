@@ -593,8 +593,6 @@ func (h *handlers) RegisterCourses(c echo.Context) error {
 			return c.NoContent(http.StatusInternalServerError)
 		}
 	}
-}
-
 
 	if err = tx.Commit(); err != nil {
 		c.Logger().Error(err)
