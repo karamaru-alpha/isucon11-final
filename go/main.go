@@ -972,6 +972,8 @@ func (h *handlers) SearchCourses(c echo.Context) error {
 	}
 
 	q := linkURL.Query()
+	q.Del("start")
+	
 	if page > 1 {
 		q.Set("page", strconv.Itoa(page-1))
 		linkURL.RawQuery = q.Encode()
