@@ -587,7 +587,7 @@ func (h *handlers) RegisterCourses(c echo.Context) error {
 	}
 
 	if len(newlyAdded) > 0 {
-		_, err = tx.Exec("INSERT INTO `registrations` (`course_id`, `user_id`) VALUES (:id, "+userID+") ON DUPLICATE KEY UPDATE `course_id` = VALUES(`course_id`), `user_id` = VALUES(`user_id`)", newlyAdded)
+		_, err = tx.NamedExec("INSERT INTO `registrations` (`course_id`, `user_id`) VALUES (:id, "+userID+") ON DUPLICATE KEY UPDATE `course_id` = VALUES(`course_id`), `user_id` = VALUES(`user_id`)", newlyAdded)
 		if err != nil {
 			c.Logger().Error(err)
 			return c.NoContent(http.StatusInternalServerError)
