@@ -973,7 +973,7 @@ func (h *handlers) SearchCourses(c echo.Context) error {
 
 	q := linkURL.Query()
 	q.Del("start")
-	
+
 	if page > 1 {
 		q.Set("page", strconv.Itoa(page-1))
 		linkURL.RawQuery = q.Encode()
@@ -1699,20 +1699,26 @@ func (h *handlers) AddAnnouncement(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	var targets []User
-	query := "SELECT `users`.* FROM `users`" +
-		" JOIN `registrations` ON `users`.`id` = `registrations`.`user_id`" +
-		" WHERE `registrations`.`course_id` = ?"
-	if err := h.DB.Select(&targets, query, req.CourseID); err != nil {
+	var userIDs []string
+	query := "SELECT `id` FROM `registrations` WHERE `course_id` = ?"
+	if err := h.DB.Select(&userIDs, query, req.CourseID); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	for _, user := range targets {
-		if _, err := tx.Exec("INSERT INTO `unread_announcements` (`announcement_id`, `user_id`) VALUES (?, ?)", req.ID, user.ID); err != nil {
-			c.Logger().Error(err)
-			return c.NoContent(http.StatusInternalServerError)
-		}
+	type Tmp struct {
+		AnnouncementID string `db:"announcement_id"`
+		UserID         string `db:"user_id"`
+	}
+
+	var unreads []Tmp
+	for _, id := range userIDs {
+		unreads = append(unreads, Tmp{req.ID, id})
+	}
+
+	if _, err := tx.NamedExec("INSERT INTO `unread_announcements` (`announcement_id`, `user_id`) VALUES (:announcement_id, :user_id)", unreads); err != nil {
+		c.Logger().Error(err)
+		return c.NoContent(http.StatusInternalServerError)
 	}
 
 	if err := tx.Commit(); err != nil {
