@@ -1572,13 +1572,13 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 
 	if c.QueryParam("start") != "" {
 		query += " AND `unread_announcements`.`user_id` = ?" +
-			" AND `announcements`.`id` <= ?" +
+			" AND `announcements`.`id` >= ?" +
 			" ORDER BY `announcements`.`id` DESC" +
 			" LIMIT ?"
 		args = append(args, userID, c.QueryParam("start"), limit)
 	} else if c.QueryParam("end") != "" {
 		query += " AND `unread_announcements`.`user_id` = ?" +
-			" AND `announcements`.`id` > ?" +
+			" AND `announcements`.`id` < ?" +
 			" ORDER BY `announcements`.`id` DESC" +
 			" LIMIT ?"
 		args = append(args, userID, c.QueryParam("end"), limit)
@@ -1588,6 +1588,7 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 			" LIMIT ? OFFSET ?"
 		args = append(args, userID)
 		offset := limit * (page - 1)
+
 		// limitより多く上限を設定し、実際にlimitより多くレコードが取得できた場合は次のページが存在する
 		args = append(args, limit+1, offset)
 	}
