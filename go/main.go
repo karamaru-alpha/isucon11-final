@@ -951,7 +951,6 @@ func (h *handlers) SearchCourses(c echo.Context) error {
 
 	if c.QueryParam("start") != "" {
 		condition += " AND `courses`.`code` >= ? ORDER BY `courses`.`code` LIMIT ?"
-		
 		args = append(args, c.QueryParam("start"), limit+1)
 	} else {
 		condition += " ORDER BY `courses`.`code` LIMIT ? OFFSET ?"
