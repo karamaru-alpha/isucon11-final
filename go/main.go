@@ -1572,13 +1572,13 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 
 	if c.QueryParam("start") != "" {
 		query += " AND `unread_announcements`.`user_id` = ?" +
-			" AND `announcements`.`id` >= ?" +
+			" AND `announcements`.`id` <= ?" +
 			" ORDER BY `announcements`.`id` DESC" +
 			" LIMIT ?"
 		args = append(args, userID, c.QueryParam("start"), limit)
 	} else if c.QueryParam("end") != "" {
 		query += " AND `unread_announcements`.`user_id` = ?" +
-			" AND `announcements`.`id` < ?" +
+			" AND `announcements`.`id` > ?" +
 			" ORDER BY `announcements`.`id` DESC" +
 			" LIMIT ?"
 		args = append(args, userID, c.QueryParam("end"), limit)
