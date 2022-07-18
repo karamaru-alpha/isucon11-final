@@ -1624,7 +1624,7 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 		links = append(links, fmt.Sprintf("<%v>; rel=\"prev\"", linkURL))
 	}
 	if len(announcements) > limit {
-		q.Set("start", announcements[len(announcements)].ID)
+		q.Set("start", announcements[len(announcements)-1].ID)
 		q.Set("page", strconv.Itoa(page+1))
 		linkURL.RawQuery = q.Encode()
 		links = append(links, fmt.Sprintf("<%v>; rel=\"next\"", linkURL))
