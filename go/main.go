@@ -1561,7 +1561,7 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 
 	query += " AND `unread_announcements`.`user_id` = ?" +
 		" ORDER BY `announcements`.`id` DESC" +
-		" LIMIT ?"
+		" LIMIT ? OFFSET ?"
 	args = append(args, userID)
 
 	var page int
@@ -1574,8 +1574,9 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 		}
 	}
 	limit := 20
+	offset := limit * (page - 1)
 	// limitより多く上限を設定し、実際にlimitより多くレコードが取得できた場合は次のページが存在する
-	args = append(args, limit+1)
+	args = append(args, limit+1, offset)
 
 	if err := tx.Select(&announcements, query, args...); err != nil {
 		c.Logger().Error(err)
@@ -1594,7 +1595,7 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 	}
 
 	var links []string
-	linkURL, err := url.Parse(c.Request().URL.Path)
+	linkURL, err := url.Parse(c.Request().URL.Path + "?" + c.Request().URL.RawQuery)
 	if err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
