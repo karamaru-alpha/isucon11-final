@@ -936,8 +936,6 @@ func (h *handlers) SearchCourses(c echo.Context) error {
 		args = append(args, status)
 	}
 
-	condition += " ORDER BY `courses`.`code`"
-
 	var page int
 	if c.QueryParam("page") == "" {
 		page = 1
@@ -951,9 +949,13 @@ func (h *handlers) SearchCourses(c echo.Context) error {
 	limit := 20
 	offset := limit * (page - 1)
 
-	// limitより多く上限を設定し、実際にlimitより多くレコードが取得できた場合は次のページが存在する
-	condition += " LIMIT ? OFFSET ?"
-	args = append(args, limit+1, offset)
+	if c.QueryParam("start") != "" {
+		condition += " AND `courses`.`code` >= ? ORDER BY `courses`.`code` LIMIT ?"
+		args = append(args, c.QueryParam("start"), limit+1)
+	} else {
+		condition += " ORDER BY `courses`.`code` LIMIT ? OFFSET ?"
+		args = append(args, limit+1, offset)
+	}
 
 	// 結果が0件の時は空配列を返却
 	res := make([]GetCourseDetailResponse, 0)
@@ -970,12 +972,15 @@ func (h *handlers) SearchCourses(c echo.Context) error {
 	}
 
 	q := linkURL.Query()
+	q.Del("start")
+	
 	if page > 1 {
 		q.Set("page", strconv.Itoa(page-1))
 		linkURL.RawQuery = q.Encode()
 		links = append(links, fmt.Sprintf("<%v>; rel=\"prev\"", linkURL))
 	}
 	if len(res) > limit {
+		q.Set("start", res[len(res)-1].Code)
 		q.Set("page", strconv.Itoa(page+1))
 		linkURL.RawQuery = q.Encode()
 		links = append(links, fmt.Sprintf("<%v>; rel=\"next\"", linkURL))
