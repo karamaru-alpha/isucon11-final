@@ -1559,24 +1559,39 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 		query += " AND 1=0"
 	}
 
-	query += " AND `unread_announcements`.`user_id` = ?" +
-		" ORDER BY `announcements`.`id` DESC" +
-		" LIMIT ? OFFSET ?"
-	args = append(args, userID)
-
-	var page int
-	if c.QueryParam("page") == "" {
-		page = 1
+	if c.QueryParam("start") != "" {
+		query += " AND `unread_announcements`.`user_id` = ?" +
+			" AND `announcements`.`id` >= ?" +
+			" ORDER BY `announcements`.`id` DESC" +
+			" LIMIT ?"
+		limit := 20
+		args = append(args, userID, c.QueryParam("start"), limit)
+	} else if c.QueryParam("end") != "" {
+		query += " AND `unread_announcements`.`user_id` = ?" +
+			" AND `announcements`.`id` < ?" +
+			" ORDER BY `announcements`.`id` DESC" +
+			" LIMIT ?"
+		limit := 20
+		args = append(args, userID, c.QueryParam("end"), limit)
 	} else {
-		page, err = strconv.Atoi(c.QueryParam("page"))
-		if err != nil || page <= 0 {
-			return c.String(http.StatusBadRequest, "Invalid page.")
+		var page int
+		if c.QueryParam("page") == "" {
+			page = 1
+		} else {
+			page, err = strconv.Atoi(c.QueryParam("page"))
+			if err != nil || page <= 0 {
+				return c.String(http.StatusBadRequest, "Invalid page.")
+			}
 		}
+		query += " AND `unread_announcements`.`user_id` = ?" +
+			" ORDER BY `announcements`.`id` DESC" +
+			" LIMIT ? OFFSET ?"
+		args = append(args, userID)
+		limit := 20
+		offset := limit * (page - 1)
+		// limitより多く上限を設定し、実際にlimitより多くレコードが取得できた場合は次のページが存在する
+		args = append(args, limit+1, offset)
 	}
-	limit := 20
-	offset := limit * (page - 1)
-	// limitより多く上限を設定し、実際にlimitより多くレコードが取得できた場合は次のページが存在する
-	args = append(args, limit+1, offset)
 
 	if err := tx.Select(&announcements, query, args...); err != nil {
 		c.Logger().Error(err)
