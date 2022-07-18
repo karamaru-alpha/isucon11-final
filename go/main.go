@@ -1572,16 +1572,11 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 
 	if c.QueryParam("start") != "" {
 		query += " AND `unread_announcements`.`user_id` = ?" +
-			" AND `announcements`.`id` >= ?" +
+			" AND `announcements`.`id` <= ?" +
 			" ORDER BY `announcements`.`id` DESC" +
 			" LIMIT ?"
-		args = append(args, userID, c.QueryParam("start"), limit)
-	} else if c.QueryParam("end") != "" {
-		query += " AND `unread_announcements`.`user_id` = ?" +
-			" AND `announcements`.`id` < ?" +
-			" ORDER BY `announcements`.`id` DESC" +
-			" LIMIT ?"
-		args = append(args, userID, c.QueryParam("end"), limit)
+		args = append(args, userID, c.Quer
+		yParam("start"), limit)
 	} else {
 		query += " AND `unread_announcements`.`user_id` = ?" +
 			" ORDER BY `announcements`.`id` DESC" +
@@ -1618,7 +1613,6 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 
 	q := linkURL.Query()
 	if page > 1 {
-		q.Set("end", announcements[0].ID)
 		q.Set("page", strconv.Itoa(page-1))
 		linkURL.RawQuery = q.Encode()
 		links = append(links, fmt.Sprintf("<%v>; rel=\"prev\"", linkURL))
