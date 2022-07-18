@@ -1442,7 +1442,8 @@ func (h *handlers) DownloadSubmittedAssignments(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	return c.File(zipFilePath)
+	c.Response().Header().Set("x-accel-redirect", "/assignments/"+classID+".zip")
+	return c.NoContent(http.StatusOK)
 }
 
 func createSubmissionsZip2(zipFilePath string, classID string, submissions []Submission) error {
