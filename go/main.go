@@ -586,8 +586,8 @@ func (h *handlers) RegisterCourses(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, errors)
 	}
 
-	for _, course := range newlyAdded {
-		_, err = tx.Exec("INSERT INTO `registrations` (`course_id`, `user_id`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `course_id` = VALUES(`course_id`), `user_id` = VALUES(`user_id`)", course.ID, userID)
+	if len(newlyAdded) > 0 {
+		_, err = tx.NamedExec("INSERT INTO `registrations` (`course_id`, `user_id`) VALUES (:id, "+userID+" ) ON DUPLICATE KEY UPDATE `course_id` = VALUES(`course_id`), `user_id` = VALUES(`user_id`)", newlyAdded)
 		if err != nil {
 			c.Logger().Error(err)
 			return c.NoContent(http.StatusInternalServerError)
@@ -1699,26 +1699,17 @@ func (h *handlers) AddAnnouncement(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	var userIDs []string
-	query := "SELECT `user_id` FROM `registrations` " +
-		"WHERE `course_id` = ?"
-	if err := h.DB.Select(&userIDs, query, req.CourseID); err != nil {
+	var targets []User
+	query := "SELECT `users`.* FROM `users`" +
+		" JOIN `registrations` ON `users`.`id` = `registrations`.`user_id`" +
+		" WHERE `registrations`.`course_id` = ?"
+	if err := h.DB.Select(&targets, query, req.CourseID); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	type Tmp struct {
-		AnnouncementID string `db:"announcement_id"`
-		UserID         string `db:"user_id"`
-	}
-
-	var unreads []Tmp
-	for _, id := range userIDs {
-		unreads = append(unreads, Tmp{req.ID, id})
-	}
-
-	if len(unreads) > 0 {
-		if _, err := tx.NamedExec("INSERT INTO `unread_announcements` (`announcement_id`, `user_id`) VALUES (:announcement_id, :user_id)", unreads); err != nil {
+	for _, user := range targets {
+		if _, err := tx.Exec("INSERT INTO `unread_announcements` (`announcement_id`, `user_id`) VALUES (?, ?)", req.ID, user.ID); err != nil {
 			c.Logger().Error(err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
