@@ -1561,7 +1561,7 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 
 	query += " AND `unread_announcements`.`user_id` = ?" +
 		" ORDER BY `announcements`.`id` DESC" +
-		" LIMIT ? OFFSET ?"
+		" LIMIT ?"
 	args = append(args, userID)
 
 	var page int
@@ -1574,9 +1574,8 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 		}
 	}
 	limit := 20
-	offset := limit * (page - 1)
 	// limitより多く上限を設定し、実際にlimitより多くレコードが取得できた場合は次のページが存在する
-	args = append(args, limit+1, offset)
+	args = append(args, limit+1)
 
 	if err := tx.Select(&announcements, query, args...); err != nil {
 		c.Logger().Error(err)
@@ -1602,13 +1601,13 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 	}
 
 	q := linkURL.Query()
-	q.Set("start", announcements[0].ID)
 	if page > 1 {
 		q.Set("page", strconv.Itoa(page-1))
 		linkURL.RawQuery = q.Encode()
 		links = append(links, fmt.Sprintf("<%v>; rel=\"prev\"", linkURL))
 	}
 	if len(announcements) > limit {
+		q.Set("start", announcements[len(announcements)-1].ID)
 		q.Set("page", strconv.Itoa(page+1))
 		linkURL.RawQuery = q.Encode()
 		links = append(links, fmt.Sprintf("<%v>; rel=\"next\"", linkURL))
