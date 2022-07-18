@@ -753,18 +753,34 @@ func (h *handlers) GetGrades(c echo.Context) error {
 
 		// この科目を履修している学生のTotalScore一覧を取得
 
-		totals := make([]int, 0)
+		//totals := make([]int, 0)
+
+		type TotalInfo struct {
+			Totals       []int
+			TotalUserCnt int
+		}
 		tmp, err, _ := group1.Do(fmt.Sprintf("total-%s", course.ID), func() (interface{}, error) {
 			query := "SELECT IFNULL(SUM(`submissions`.`score`), 0) AS `total_score` FROM `submissions` JOIN `classes` ON `submissions`.`class_id` = `classes`.`id` WHERE `classes`.`course_id`= ? GROUP BY `submissions`.`user_id`"
 			a := make([]int, 0)
-			err := h.DB.Select(&a, query, course.ID)
-			return a, err
+			if err := h.DB.Select(&a, query, course.ID); err != nil {
+				return nil, err
+			}
+			var b int
+			if err := h.DB.Get(&b, "SELECT COUNT(*) FROM `registrations` WHERE `course_id` = ?", course.ID); err != nil {
+				return nil, err
+			}
+			return TotalInfo{
+				Totals:       a,
+				TotalUserCnt: b,
+			}, nil
 		})
 		if err != nil {
 			c.Logger().Error(err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
-		totals = tmp.([]int)
+		totalInfo := tmp.(TotalInfo)
+		totals := totalInfo.Totals
+		totalUserCnt := totalInfo.TotalUserCnt
 
 		//query := "SELECT IFNULL(SUM(`submissions`.`score`), 0) AS `total_score`" +
 		//	" FROM `users`" +
@@ -780,11 +796,11 @@ func (h *handlers) GetGrades(c echo.Context) error {
 		//	return c.NoContent(http.StatusInternalServerError)
 		//}
 
-		var totalUserCnt int
-		if err := h.DB.Get(&totalUserCnt, "SELECT COUNT(*) FROM `registrations` WHERE `course_id` = ?", course.ID); err != nil {
-			c.Logger().Error(err)
-			return c.NoContent(http.StatusInternalServerError)
-		}
+		//var totalUserCnt int
+		//if err := h.DB.Get(&totalUserCnt, "SELECT COUNT(*) FROM `registrations` WHERE `course_id` = ?", course.ID); err != nil {
+		//	c.Logger().Error(err)
+		//	return c.NoContent(http.StatusInternalServerError)
+		//}
 
 		if len(totals) > 0 {
 			for {
