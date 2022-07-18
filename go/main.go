@@ -754,6 +754,18 @@ func (h *handlers) GetGrades(c echo.Context) error {
 		// この科目を履修している学生のTotalScore一覧を取得
 
 		totals := make([]int, 0)
+		tmp, err, _ := group1.Do(fmt.Sprintf("total-%s", course.ID), func() (interface{}, error) {
+			query := "SELECT IFNULL(SUM(`submissions`.`score`), 0) AS `total_score` FROM `submissions` JOIN `classes` ON `submissions`.`class_id` = `classes`.`id` WHERE `classes`.`course_id`= ? GROUP BY `submissions`.`user_id`"
+			a := make([]int, 0)
+			err := h.DB.Select(&a, query, course.ID)
+			return a, err
+		})
+		if err != nil {
+			c.Logger().Error(err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+		totals = tmp.([]int)
+
 		//query := "SELECT IFNULL(SUM(`submissions`.`score`), 0) AS `total_score`" +
 		//	" FROM `users`" +
 		//	" JOIN `registrations` ON `users`.`id` = `registrations`.`user_id`" +
@@ -762,11 +774,11 @@ func (h *handlers) GetGrades(c echo.Context) error {
 		//	" LEFT JOIN `submissions` ON `users`.`id` = `submissions`.`user_id` AND `submissions`.`class_id` = `classes`.`id`" +
 		//	" WHERE `courses`.`id` = ?" +
 		//	" GROUP BY `users`.`id`"
-		query := "SELECT IFNULL(SUM(`submissions`.`score`), 0) AS `total_score` FROM `submissions` JOIN `classes` ON `submissions`.`class_id` = `classes`.`id` WHERE `classes`.`course_id`= ? GROUP BY `submissions`.`user_id`"
-		if err := h.DB.Select(&totals, query, course.ID); err != nil {
-			c.Logger().Error(err)
-			return c.NoContent(http.StatusInternalServerError)
-		}
+		//query := "SELECT IFNULL(SUM(`submissions`.`score`), 0) AS `total_score` FROM `submissions` JOIN `classes` ON `submissions`.`class_id` = `classes`.`id` WHERE `classes`.`course_id`= ? GROUP BY `submissions`.`user_id`"
+		//if err := h.DB.Select(&totals, query, course.ID); err != nil {
+		//	c.Logger().Error(err)
+		//	return c.NoContent(http.StatusInternalServerError)
+		//}
 
 		var totalUserCnt int
 		if err := h.DB.Get(&totalUserCnt, "SELECT COUNT(*) FROM `registrations` WHERE `course_id` = ?", course.ID); err != nil {
@@ -1408,7 +1420,7 @@ func (h *handlers) DownloadSubmittedAssignments(c echo.Context) error {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
-	
+
 	if err := tx.Commit(); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
