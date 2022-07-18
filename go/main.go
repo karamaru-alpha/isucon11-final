@@ -693,6 +693,7 @@ func (h *handlers) GetGrades(c echo.Context) error {
 	courseResults := make([]CourseResult, 0, len(registeredCourses))
 	myGPA := 0.0
 	myCredits := 0
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -861,6 +862,7 @@ func (h *handlers) GetGrades(c echo.Context) error {
 		}
 		gpas = v.([]float64)
 	}()
+	wg.Wait()
 	if err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
