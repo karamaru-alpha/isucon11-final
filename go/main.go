@@ -1602,7 +1602,6 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 	}
 
 	q := linkURL.Query()
-	qq := linkURL.Query()
 	if page > 1 {
 		q.Set("start", c.QueryParam("start"))
 		q.Set("page", strconv.Itoa(page-1))
@@ -1610,9 +1609,9 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 		links = append(links, fmt.Sprintf("<%v>; rel=\"prev\"", linkURL))
 	}
 	if len(announcements) > limit {
-		qq.Set("start", announcements[len(announcements)-1].ID)
-		qq.Set("page", strconv.Itoa(page+1))
-		linkURL.RawQuery = qq.Encode()
+		q.Set("start", announcements[len(announcements)-1].ID)
+		q.Set("page", strconv.Itoa(page+1))
+		linkURL.RawQuery = q.Encode()
 		links = append(links, fmt.Sprintf("<%v>; rel=\"next\"", linkURL))
 	}
 	if len(links) > 0 {
