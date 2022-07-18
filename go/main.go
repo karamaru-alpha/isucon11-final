@@ -1514,6 +1514,7 @@ type GetAnnouncementsResponse struct {
 
 // GetAnnouncementList GET /api/announcements お知らせ一覧取得
 func (h *handlers) GetAnnouncementList(c echo.Context) error {
+	//log.Print(c.Request().Header)
 	userID, _, _, err := getUserInfo(c)
 	if err != nil {
 		c.Logger().Error(err)
@@ -1601,6 +1602,7 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 	}
 
 	q := linkURL.Query()
+	q.Set("start", announcements[0].ID)
 	if page > 1 {
 		q.Set("page", strconv.Itoa(page-1))
 		linkURL.RawQuery = q.Encode()
