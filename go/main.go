@@ -1602,6 +1602,7 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 
 	q := linkURL.Query()
 	if page > 1 {
+		q.Set("start", c.QueryParam("start"))
 		q.Set("page", strconv.Itoa(page-1))
 		linkURL.RawQuery = q.Encode()
 		links = append(links, fmt.Sprintf("<%v>; rel=\"prev\"", linkURL))
