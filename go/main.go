@@ -19,7 +19,7 @@ import (
 
 	"github.com/bytedance/sonic/decoder"
 	"github.com/bytedance/sonic/encoder"
-	
+
 	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
@@ -94,6 +94,18 @@ func main() {
 	db2.SetMaxOpenConns(SQL_CONN_COUNT)
 	db2.SetMaxIdleConns(SQL_CONN_COUNT)
 	db2.SetConnMaxLifetime(SQL_CONN_COUNT * time.Second)
+	for {
+		if err := db.Ping(); err == nil {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	for {
+		if err := db2.Ping(); err == nil {
+			break
+		}
+		time.Sleep(time.Second)
+	}
 
 	h := &handlers{
 		DB:  db,
