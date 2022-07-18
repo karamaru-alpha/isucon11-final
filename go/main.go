@@ -1594,7 +1594,7 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 	}
 
 	var links []string
-	linkURL, err := url.Parse(c.Request().URL.Path + "?" + c.Request().URL.RawQuery)
+	linkURL, err := url.Parse(c.Request().URL.Path)
 	if err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
