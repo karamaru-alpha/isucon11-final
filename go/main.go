@@ -973,7 +973,7 @@ func (h *handlers) SearchCourses(c echo.Context) error {
 
 	q := linkURL.Query()
 	q.Del("start")
-	
+
 	if page > 1 {
 		q.Set("page", strconv.Itoa(page-1))
 		linkURL.RawQuery = q.Encode()
@@ -1609,13 +1609,15 @@ func (h *handlers) GetAnnouncementList(c echo.Context) error {
 	}
 
 	var links []string
-	linkURL, err := url.Parse(c.Request().URL.Path)
+	linkURL, err := url.Parse(c.Request().URL.Path + "?" + c.Request().URL.RawQuery)
 	if err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
 	q := linkURL.Query()
+	q.Del("start")
+	
 	if page > 1 {
 		q.Set("page", strconv.Itoa(page-1))
 		linkURL.RawQuery = q.Encode()
