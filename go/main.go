@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
 	"database/sql"
 	"errors"
@@ -1398,7 +1399,7 @@ func (h *handlers) DownloadSubmittedAssignments(c echo.Context) error {
 	}
 
 	zipFilePath := AssignmentsDirectory + classID + ".zip"
-	if err := createSubmissionsZip(zipFilePath, classID, submissions); err != nil {
+	if err := createSubmissionsZip2(zipFilePath, classID, submissions); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
@@ -1407,13 +1408,40 @@ func (h *handlers) DownloadSubmittedAssignments(c echo.Context) error {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
-
+	
 	if err := tx.Commit(); err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
 	return c.File(zipFilePath)
+}
+
+func createSubmissionsZip2(zipFilePath string, classID string, submissions []Submission) error {
+	tmpfile, err := os.Create(zipFilePath)
+	if err != nil {
+		return err
+	}
+	w := zip.NewWriter(tmpfile)
+	for _, submission := range submissions {
+		header := &zip.FileHeader{
+			Name:   submission.UserCode + "-" + submission.FileName,
+			Method: zip.Store,
+		}
+		f, err := w.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+		src, err := os.Open(AssignmentsDirectory + classID + "-" + submission.UserID + ".pdf")
+		if err != nil {
+			return err
+		}
+		io.Copy(f, src)
+		src.Close()
+	}
+	w.Close()
+	tmpfile.Close()
+	return nil
 }
 
 func createSubmissionsZip(zipFilePath string, classID string, submissions []Submission) error {
